@@ -1,0 +1,62 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #333;
+    color: white;
+  }
+  
+  #game {
+    text-align: center;
+  }
+  
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(10, 30px);
+    grid-template-rows: repeat(20, 30px);
+    gap: 1px;
+    background-color: #222;
+    margin: 20px auto;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  }
+  
+  .cell {
+    width: 30px;
+    height: 30px;
+    background-color: #444;
+    transform: translate3d(0, 0, 0);
+    will-change: transform, background-color;
+    transition: background-color 0.1s ease;
+  }
+  
+  #score, #timer {
+    margin: 10px 0;
+    font-size: 1.2em;
+  }
+  
+  #lives {
+    margin: 10px 0;
+    font-size: 1.2em;
+    color: #ff4444;
+  }
+  
+  #pause-menu {
+    margin-top: 20px;
+  }
+  
+  button {
+    padding: 10px 20px;
+    font-size: 1em;
+    margin: 5px;
+    cursor: pointer;
+  }
+  
+  /* Add loading state for assets */
+  .loading {
+    opacity: 0.5;
+    pointer-events: none;
+  }
