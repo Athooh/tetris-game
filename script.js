@@ -275,7 +275,12 @@ document.addEventListener('DOMContentLoaded', () => {
         cellCache.clear();
         lastDropTime = 0;
         startTime = null;
-        
+
+        // Reset keyState
+        keyState.ArrowLeft = false;
+        keyState.ArrowRight = false;
+        keyState.ArrowDown = false;
+            
         // Reset UI
         scoreElement.textContent = `Score: ${score}`; // Keep the score until all lives are lost
         timerElement.textContent = 'Time: 00:00';
@@ -352,6 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
       currentTetromino = null;
       currentTetrominoType = null;
       cellCache.clear();
+
+      // Reset keyState
+      keyState.ArrowLeft = false;
+      keyState.ArrowRight = false;
+      keyState.ArrowDown = false;
       
       // Reset UI
       scoreElement.textContent = `Score: ${score}`;
