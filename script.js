@@ -320,16 +320,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear completed lines
     function clearLines() {
       let linesCleared = 0;
+    
+      // Iterate from the bottom to the top
       for (let row = rows - 1; row >= 0; row--) {
         if (grid[row].every(cell => cell !== 0)) {
+          // Remove the completed line
           grid.splice(row, 1);
+          // Add a new empty line at the top
           grid.unshift(Array(cols).fill(0));
-          score += 10;
-          scoreElement.textContent = `Score: ${score}`;
           linesCleared++;
+          // Since we removed a row, we need to check the same row index again
+          row++;
         }
       }
+    
       if (linesCleared > 0) {
+        // Update the score based on the number of lines cleared
+        score += linesCleared * 10; // 10 points per line
+        scoreElement.textContent = `Score: ${score}`;
         playSound('clearLine');
       }
     }
