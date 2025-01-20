@@ -59,7 +59,7 @@ The goal of Tetris is to score as many points as possible by clearing horizontal
 ### **Running the Game Locally**
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/your-username/tetris-game.git
+   git clone https://github.com/athooh/tetris-game.git
    cd tetris-game
    ```
 2. **Open the Game**:
@@ -115,7 +115,7 @@ Here are some ideas for future enhancements:
 
 - **Game Design**: Inspired by the classic Tetris game.
 - **Sound Effects**: Provided by [Mixkit](https://mixkit.co/).
-- **Development**: Built by [Your Name] as a fun project to learn and practice JavaScript and SVG.
+- **Development**: Built by **Seth Athooh** as a fun project to learn and practice JavaScript and SVG.
 
 ---
 
@@ -135,24 +135,6 @@ This project is open-source and available under the [MIT License](LICENSE). Feel
 ---
 
 Enjoy playing the game, and happy coding! 🚀
-```
+
 
 ---
-
-### **Steps to Create the `README.md` File**
-1. Open a text editor (e.g., Notepad, VS Code, Sublime Text).
-2. Copy the content above and paste it into the editor.
-3. Save the file as `README.md` in the root directory of your project.
-
----
-
-### **Downloadable File**
-If you'd like to download the `README.md` file directly, you can use the following steps:
-1. Copy the content above.
-2. Go to [this online Markdown editor](https://dillinger.io/).
-3. Paste the content into the editor.
-4. Click the **Download as Markdown** button to save the file.
-
----
-
-Let me know if you need further assistance! 😊

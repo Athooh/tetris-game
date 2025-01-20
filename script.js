@@ -109,6 +109,145 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     }
+
+
+     // Start the game
+     function startGame() {
+      console.log('Game started');
+      if (lives === 3) {
+          // Only reset score when starting a fresh game
+          score = 0;
+          scoreElement.textContent = `Score: ${score}`;
+      }
+      initializeGrid();
+      lastDropTime = performance.now();
+      startTime = new Date().getTime();
+      timerInterval = setInterval(updateTimer, 1000);
+      spawnTetromino();
+      gameLoop(performance.now());
+      startButton.style.display = 'none';
+    }
+  
+    // Pause the game
+    function pauseGame() {
+      isPaused = true;
+      cancelAnimationFrame(animationId);
+      clearInterval(timerInterval);
+      pauseMenu.style.display = 'block';
+    }
+  
+    // Continue the game
+    function continueGame() {
+      isPaused = false;
+      pauseMenu.style.display = 'none';
+      timerInterval = setInterval(updateTimer, 1000);
+      lastDropTime = performance.now();
+      gameLoop(performance.now());
+    }
+  
+    // Restart the game
+    function restartGame() {
+      // Clear all intervals and animation frames
+      cancelAnimationFrame(animationId);
+      clearInterval(timerInterval);
+      
+      // Reset game state
+      grid = Array.from({ length: rows }, () => Array(cols).fill(0));
+      score = 0;
+      isPaused = false;
+      currentTetromino = null;
+      currentTetrominoType = null;
+      cellCache.clear();
+
+      // Reset keyState
+      keyState.ArrowLeft = false;
+      keyState.ArrowRight = false;
+      keyState.ArrowDown = false;
+      
+      // Reset UI
+      scoreElement.textContent = `Score: ${score}`;
+      timerElement.textContent = 'Time: 00:00';
+      pauseMenu.style.display = 'none';
+      
+      // Start fresh game
+      startTime = new Date().getTime();
+      lastDropTime = performance.now();
+      
+      // Initialize and start
+      initializeGrid();
+      spawnTetromino();
+      gameLoop(performance.now());
+    }
+  
+    // Event listeners
+    document.addEventListener('keydown', (event) => {
+        if (event.repeat) return; // Prevent key repeat
+        
+        switch(event.key) {
+            case 'ArrowLeft':
+                moveTetromino(-1, 0);
+                break;
+            case 'ArrowRight':
+                moveTetromino(1, 0);
+                break;
+            case 'ArrowDown':
+                keyState.ArrowDown = true;
+                break;
+            case 'ArrowUp':
+                rotateTetromino();
+                break;
+            case ' ':
+                pauseGame();
+                break;
+        }
+    });
+  
+    document.addEventListener('keyup', (event) => {
+        if (event.key === 'ArrowDown') {
+            keyState.ArrowDown = false;
+        }
+    });
+  
+    startButton.addEventListener('click', () => {
+      console.log('Start button clicked'); // Debugging statement
+      startGame();
+    });
+  
+    continueButton.addEventListener('click', continueGame);
+    restartButton.addEventListener('click', restartGame);
+  
+    function updateTimer() {
+      if (!startTime || isPaused) return;
+      
+      const currentTime = new Date().getTime();
+      const elapsedTime = new Date(currentTime - startTime);
+      const minutes = elapsedTime.getMinutes().toString().padStart(2, '0');
+      const seconds = elapsedTime.getSeconds().toString().padStart(2, '0');
+      timerElement.textContent = `Time: ${minutes}:${seconds}`;
+    }
+  
+    function playSound(soundName) {
+        if (sounds[soundName]) {
+            sounds[soundName].currentTime = 0;
+            sounds[soundName].play().catch(error => {
+                console.log('Sound play failed:', error);
+                // Continue game without sound
+            });
+        }
+    }
+  
+    // Add ghost piece calculation
+    function calculateGhostPosition() {
+        if (!currentTetromino) return null;
+        
+        let ghostY = currentPosition.y;
+        while (!checkCollision(currentPosition.x, ghostY + 1, currentTetromino)) {
+            ghostY++;
+        }
+        
+        return { x: currentPosition.x, y: ghostY };
+    }
+  
   
     // Spawn a new tetromino
     function spawnTetromino() {
@@ -310,143 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         animationId = requestAnimationFrame(gameLoop);
     }
   
-    // Start the game
-    function startGame() {
-      console.log('Game started');
-      if (lives === 3) {
-          // Only reset score when starting a fresh game
-          score = 0;
-          scoreElement.textContent = `Score: ${score}`;
-      }
-      initializeGrid();
-      lastDropTime = performance.now();
-      startTime = new Date().getTime();
-      timerInterval = setInterval(updateTimer, 1000);
-      spawnTetromino();
-      gameLoop(performance.now());
-      startButton.style.display = 'none';
-    }
-  
-    // Pause the game
-    function pauseGame() {
-      isPaused = true;
-      cancelAnimationFrame(animationId);
-      clearInterval(timerInterval);
-      pauseMenu.style.display = 'block';
-    }
-  
-    // Continue the game
-    function continueGame() {
-      isPaused = false;
-      pauseMenu.style.display = 'none';
-      timerInterval = setInterval(updateTimer, 1000);
-      lastDropTime = performance.now();
-      gameLoop(performance.now());
-    }
-  
-    // Restart the game
-    function restartGame() {
-      // Clear all intervals and animation frames
-      cancelAnimationFrame(animationId);
-      clearInterval(timerInterval);
-      
-      // Reset game state
-      grid = Array.from({ length: rows }, () => Array(cols).fill(0));
-      score = 0;
-      isPaused = false;
-      currentTetromino = null;
-      currentTetrominoType = null;
-      cellCache.clear();
-
-      // Reset keyState
-      keyState.ArrowLeft = false;
-      keyState.ArrowRight = false;
-      keyState.ArrowDown = false;
-      
-      // Reset UI
-      scoreElement.textContent = `Score: ${score}`;
-      timerElement.textContent = 'Time: 00:00';
-      pauseMenu.style.display = 'none';
-      
-      // Start fresh game
-      startTime = new Date().getTime();
-      lastDropTime = performance.now();
-      
-      // Initialize and start
-      initializeGrid();
-      spawnTetromino();
-      gameLoop(performance.now());
-    }
-  
-    // Event listeners
-    document.addEventListener('keydown', (event) => {
-        if (event.repeat) return; // Prevent key repeat
-        
-        switch(event.key) {
-            case 'ArrowLeft':
-                moveTetromino(-1, 0);
-                break;
-            case 'ArrowRight':
-                moveTetromino(1, 0);
-                break;
-            case 'ArrowDown':
-                keyState.ArrowDown = true;
-                break;
-            case 'ArrowUp':
-                rotateTetromino();
-                break;
-            case ' ':
-                pauseGame();
-                break;
-        }
-    });
-  
-    document.addEventListener('keyup', (event) => {
-        if (event.key === 'ArrowDown') {
-            keyState.ArrowDown = false;
-        }
-    });
-  
-    startButton.addEventListener('click', () => {
-      console.log('Start button clicked'); // Debugging statement
-      startGame();
-    });
-  
-    continueButton.addEventListener('click', continueGame);
-    restartButton.addEventListener('click', restartGame);
-  
-    function updateTimer() {
-      if (!startTime || isPaused) return;
-      
-      const currentTime = new Date().getTime();
-      const elapsedTime = new Date(currentTime - startTime);
-      const minutes = elapsedTime.getMinutes().toString().padStart(2, '0');
-      const seconds = elapsedTime.getSeconds().toString().padStart(2, '0');
-      timerElement.textContent = `Time: ${minutes}:${seconds}`;
-    }
-  
-    function playSound(soundName) {
-        if (sounds[soundName]) {
-            sounds[soundName].currentTime = 0;
-            sounds[soundName].play().catch(error => {
-                console.log('Sound play failed:', error);
-                // Continue game without sound
-            });
-        }
-    }
-  
-    // Add ghost piece calculation
-    function calculateGhostPosition() {
-        if (!currentTetromino) return null;
-        
-        let ghostY = currentPosition.y;
-        while (!checkCollision(currentPosition.x, ghostY + 1, currentTetromino)) {
-            ghostY++;
-        }
-        
-        return { x: currentPosition.x, y: ghostY };
-    }
-  
+   
     // Update initial button state
     startButton.classList.add('loading');
     startButton.disabled = true;
