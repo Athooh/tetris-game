@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
               moveTetromino(1, 0);
               break;
           case 'ArrowDown':
-              keyState.ArrowDown = true;
+              hardDrop();
               break;
           case 'ArrowUp':
               rotateTetromino();
@@ -224,6 +224,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   }
 
+
+  function hardDrop() {
+    const ghostPosition = calculateGhostPosition();
+    if (ghostPosition) {
+        currentPosition.y = ghostPosition.y; // Move tetromino to the ghost position
+        placeTetromino(); // Place the tetromino on the grid
+        clearLines(); // Clear any completed lines
+        score += 5
+        scoreElement.textContent = `Score: ${score}`; // Update the score display
+        spawnTetromino(); // Spawn a new tetromino
+        render(); // Update the grid
+    }
+  }
+
+
+  // Remove the keyup event listener for ArrowDown since soft drop is removed
+  document.removeEventListener('keyup', (event) => {
+        if (event.key === 'ArrowDown') {
+            keyState.ArrowDown = false;
+        }
+    });
+
+
   function clearLines() {
       let linesCleared = 0;
       for (let row = rows - 1; row >= 0; row--) {
@@ -239,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
           scoreElement.textContent = `Score: ${score}`;
       }
   }
+
 
   function render() {
       const cells = gridElement.children;
@@ -321,9 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function gameLoop(timestamp) {
       if (!isPaused) {
-          if (keyState.ArrowDown) {
-              moveTetromino(0, 1);
-          }
           if (timestamp - lastDropTime > DROP_INTERVAL) {
               moveTetromino(0, 1);
               lastDropTime = timestamp;
