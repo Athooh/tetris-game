@@ -91,3 +91,42 @@ button {
   position: relative; /* Ensure it is not overlapped */
   z-index: 10; /* Bring it to the front if needed */
 }
+
+#scoreboard {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #444;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    text-align: center;
+}
+
+#scoreboard table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+#scoreboard th, #scoreboard td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #666;
+}
+
+#scoreboard .pagination {
+    margin: 15px 0;
+}
+
+#scoreboard button {
+    margin: 5px;
+    padding: 8px 15px;
+}
+
+#scoreboard h3 {
+    color: #4CAF50;
+    margin-bottom: 15px;
+}
