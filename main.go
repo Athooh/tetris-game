@@ -19,7 +19,6 @@ type Score struct {
 	Time  string `json:"time"`
 	Rank  int    `json:"rank"`
 }
-
 func addScore(w http.ResponseWriter, r *http.Request) {
 	var score Score
 	err := json.NewDecoder(r.Body).Decode(&score)

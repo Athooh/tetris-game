@@ -307,113 +307,151 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return { x: currentPosition.x, y: ghostY };
   }
-
+ 
   function displayScoreboard(scoreboardData) {
-    // Remove any existing scoreboard
-    const existingScoreboard = document.getElementById('scoreboard');
-    if (existingScoreboard) {
-        existingScoreboard.remove();
+      return new Promise((resolve) => {
+          // Pause game loop
+          cancelAnimationFrame(animationId);
+  
+          // Remove any existing scoreboard
+          const existingScoreboard = document.getElementById('scoreboard');
+          if (existingScoreboard) {
+              existingScoreboard.remove();
+          }
+  
+          // Create the scoreboard container
+          const scoreboard = document.createElement('div');
+          scoreboard.id = 'scoreboard';
+  
+          // Find player's score position
+          const playerScore = scoreboardData.find(s => s.name === playerName);
+          const percentile = playerScore ? 
+              Math.round((1 - (playerScore.rank - 1) / scoreboardData.length) * 100) : 0;
+  
+          scoreboard.innerHTML = `
+              ${playerScore ? `<h3>Congrats ${playerScore.name}, you are in the top ${percentile}%, on the ${playerScore.rank}${getRankSuffix(playerScore.rank)} position.</h3>` : ''}
+              <h2>Top Scores</h2>
+              <table>
+                  <tr>
+                      <th>Rank</th>
+                      <th>Name</th>
+                      <th>Score</th>
+                      <th>Time</th>
+                  </tr>
+                  ${scoreboardData.slice(0, 5).map(entry => `
+                      <tr>
+                          <td>${entry.rank}${getRankSuffix(entry.rank)}</td>
+                          <td>${entry.name}</td>
+                          <td>${entry.score}</td>
+                          <td>${entry.time}</td>
+                      </tr>
+                  `).join('')}
+              </table>
+              <div class="pagination">
+                  <button onclick="changePage(-1)">←</button>
+                  <span>Page 1/${Math.ceil(scoreboardData.length / 5)}</span>
+                  <button onclick="changePage(1)">→</button>
+              </div>
+              <button id="close-scoreboard-button">Close</button>
+          `;
+  
+          // Add the scoreboard to the game container
+          document.getElementById('game-container').appendChild(scoreboard);
+  
+          // Wait for the close button to be clicked
+          const closeButton = document.getElementById('close-scoreboard-button');
+          closeButton.addEventListener('click', () => {
+              scoreboard.remove(); // Remove the scoreboard
+              resolve(); // Resolve promise to resume the game
+          });
+      });
+  }
+  
+  // Helper function for rank suffixes
+  function getRankSuffix(rank) {
+      if (rank % 10 === 1 && rank !== 11) return 'st';
+      if (rank % 10 === 2 && rank !== 12) return 'nd';
+      if (rank % 10 === 3 && rank !== 13) return 'rd';
+      return 'th';
+  }
+  
+  function gameOver() {
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      cancelAnimationFrame(animationId); // Pause game loop
+      lives--;
+      document.getElementById('lives').textContent = `Lives: ${lives}`;
+  
+      if (lives <= 0) {
+          playerName = prompt('Game Over! Enter your name:');
+          if (playerName) {
+              const currentTime = new Date().getTime();
+              const elapsedTime = new Date(currentTime - startTime);
+              const minutes = elapsedTime.getMinutes().toString().padStart(2, '0');
+              const seconds = elapsedTime.getSeconds().toString().padStart(2, '0');
+              const time = `${minutes}:${seconds}`;
+  
+              const gameData = {
+                  name: playerName,
+                  score: score,
+                  time: time
+              };
+  
+              // Send the score data to the Go API and get updated scores in response
+              fetch('http://localhost:8080/api/scores', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(gameData),
+              })
+              .then(response => {
+                  if (!response.ok) {
+                      throw new Error('Network response was not ok');
+                  }
+                  return response.json();
+              })
+              .then(scoreboardData => {
+                  console.log("Displaying scoreboard...");
+                  return displayScoreboard(scoreboardData);
+              })
+              .then(() => {
+                  // Reset game state after the scoreboard is closed
+                  lives = 3;
+                  document.getElementById('lives').textContent = `Lives: ${lives}`;
+                  resetGameState();
+              })
+              .catch(error => {
+                  console.error('Error:', error);
+                  alert('Failed to save score or fetch scoreboard');
+                  resetGameState(); // Only reset if there's an error
+              });
+          } else {
+              lives = 3;
+              document.getElementById('lives').textContent = `Lives: ${lives}`;
+              resetGameState();
+          }
+      } else {
+          alert(`Life lost! ${lives} lives remaining. Score: ${score}`);
+          resetGameState();
+      }
+  }
+  
+  function resetGameState() {
+      score = 0;
+      document.getElementById('score').textContent = `Score: ${score}`;
+      animationId = requestAnimationFrame(gameLoop); // Resume game loop
+  }
+  
+
+function closeScoreboard() {
+    const scoreboard = document.getElementById('scoreboard');
+    if (scoreboard) {
+        scoreboard.remove();
     }
-
-    // Create the scoreboard container
-    const scoreboard = document.createElement('div');
-    scoreboard.id = 'scoreboard';
-    
-    // Find player's score position
-    const playerScore = scoreboardData.find(s => s.name === playerName);
-    const percentile = playerScore ? 
-        Math.round((1 - (playerScore.rank - 1) / scoreboardData.length) * 100) : 0;
-
-    scoreboard.innerHTML = `
-        ${playerScore ? `<h3>Congrats ${playerScore.name}, you are in the top ${percentile}%, on the ${playerScore.rank}${getRankSuffix(playerScore.rank)} position.</h3>` : ''}
-        <h2>Top Scores</h2>
-        <table>
-            <tr>
-                <th>Rank</th>
-                <th>Name</th>
-                <th>Score</th>
-                <th>Time</th>
-            </tr>
-            ${scoreboardData.slice(0, 5).map(entry => `
-                <tr>
-                    <td>${entry.rank}${getRankSuffix(entry.rank)}</td>
-                    <td>${entry.name}</td>
-                    <td>${entry.score}</td>
-                    <td>${entry.time}</td>
-                </tr>
-            `).join('')}
-        </table>
-        <div class="pagination">
-            <button onclick="changePage(-1)">←</button>
-            <span>Page 1/${Math.ceil(scoreboardData.length / 5)}</span>
-            <button onclick="changePage(1)">→</button>
-        </div>
-        <button onclick="closeScoreboard()">Close</button>
-    `;
-
-    // Add the scoreboard to the game container instead of body
-    document.getElementById('game-container').appendChild(scoreboard);
+    currentPage = 1; // Reset page number
+    resetGameState(); // Only reset game state when scoreboard is explicitly closed
 }
-
-// Helper function for rank suffixes
-function getRankSuffix(rank) {
-    if (rank % 10 === 1 && rank !== 11) return 'st';
-    if (rank % 10 === 2 && rank !== 12) return 'nd';
-    if (rank % 10 === 3 && rank !== 13) return 'rd';
-    return 'th';
-}
-
-function gameOver() {
-    clearInterval(gameInterval);
-    clearInterval(timerInterval);
-    cancelAnimationFrame(animationId);
-    lives--;
-    document.getElementById('lives').textContent = `Lives: ${lives}`;
-
-    if (lives <= 0) {
-        playerName = prompt('Game Over! Enter your name:');
-        if (playerName) {
-            const currentTime = new Date().getTime();
-            const elapsedTime = new Date(currentTime - startTime);
-            const minutes = elapsedTime.getMinutes().toString().padStart(2, '0');
-            const seconds = elapsedTime.getSeconds().toString().padStart(2, '0');
-            const time = `${minutes}:${seconds}`;
-
-            const gameData = {
-                name: playerName,
-                score: score,
-                time: time
-            };
-
-            // Send the score data to the Go API
-            fetch('http://localhost:8080/api/scores', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(gameData),
-            })
-            .then(() => {
-                // Fetch the updated scoreboard and display it
-                return fetch('http://localhost:8080/api/scores');
-            })
-            .then(response => response.json())
-            .then(scoreboardData => {
-                displayScoreboard(scoreboardData);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
-        }
-        lives = 3;
-        document.getElementById('lives').textContent = `Lives: ${lives}`;
-        resetGameState();
-    } else {
-        alert(`Life lost! ${lives} lives remaining. Score: ${score}`);
-        resetGameState();
-    }
-}
-
 
   function resetGameState() {
       grid = Array.from({ length: rows }, () => Array(cols).fill(0));
