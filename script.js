@@ -310,8 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
  
   function displayScoreboard(scoreboardData) {
       return new Promise((resolve) => {
-          // Pause game loop
+          // Pause game loop and clear intervals
           cancelAnimationFrame(animationId);
+          clearInterval(timerInterval);
+          isPaused = true;
   
           // Remove any existing scoreboard
           const existingScoreboard = document.getElementById('scoreboard');
@@ -358,11 +360,14 @@ document.addEventListener('DOMContentLoaded', () => {
           // Add the scoreboard to the game container
           document.getElementById('game-container').appendChild(scoreboard);
   
-          // Wait for the close button to be clicked
+          // Handle close button
           const closeButton = document.getElementById('close-scoreboard-button');
           closeButton.addEventListener('click', () => {
-              scoreboard.remove(); // Remove the scoreboard
-              resolve(); // Resolve promise to resume the game
+              scoreboard.remove();
+              lives = 3;
+              document.getElementById('lives').textContent = `Lives: ${lives}`;
+              resetGameState();
+              resolve();
           });
       });
   }
@@ -378,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function gameOver() {
       clearInterval(gameInterval);
       clearInterval(timerInterval);
-      cancelAnimationFrame(animationId); // Pause game loop
+      cancelAnimationFrame(animationId);
       lives--;
       document.getElementById('lives').textContent = `Lives: ${lives}`;
   
@@ -397,7 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
                   time: time
               };
   
-              // Send the score data to the Go API and get updated scores in response
               fetch('http://localhost:8080/api/scores', {
                   method: 'POST',
                   headers: {
@@ -415,16 +419,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   console.log("Displaying scoreboard...");
                   return displayScoreboard(scoreboardData);
               })
-              .then(() => {
-                  // Reset game state after the scoreboard is closed
-                  lives = 3;
-                  document.getElementById('lives').textContent = `Lives: ${lives}`;
-                  resetGameState();
-              })
               .catch(error => {
                   console.error('Error:', error);
                   alert('Failed to save score or fetch scoreboard');
-                  resetGameState(); // Only reset if there's an error
+                  resetGameState();
               });
           } else {
               lives = 3;
@@ -438,38 +436,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function resetGameState() {
-      score = 0;
-      document.getElementById('score').textContent = `Score: ${score}`;
-      animationId = requestAnimationFrame(gameLoop); // Resume game loop
-  }
-  
-
-function closeScoreboard() {
-    const scoreboard = document.getElementById('scoreboard');
-    if (scoreboard) {
-        scoreboard.remove();
-    }
-    currentPage = 1; // Reset page number
-    resetGameState(); // Only reset game state when scoreboard is explicitly closed
-}
-
-  function resetGameState() {
       grid = Array.from({ length: rows }, () => Array(cols).fill(0));
       isPaused = false;
       currentTetromino = null;
       currentTetrominoType = null;
       cellCache.clear();
-      lastDropTime = 0;
-      startTime = null;
+      lastDropTime = performance.now(); //this
+      startTime = new Date().getTime(); //this
+      
       keyState.ArrowLeft = false;
       keyState.ArrowRight = false;
       keyState.ArrowDown = false;
+      
       scoreElement.textContent = `Score: ${score}`;
       timerElement.textContent = 'Time: 00:00';
       pauseMenu.style.display = 'none';
       startButton.style.display = 'block';
       pauseButton.style.display = 'none';
+      
       initializeGrid();
+      spawnTetromino();//this
+      gameLoop(performance.now()); //this
   }
 
   function gameLoop(timestamp) {
