@@ -48,15 +48,15 @@
     "rank": 8
   },
   {
-    "name": "ssd",
+    "name": "e",
     "score": 160,
     "time": "00:10",
     "rank": 9
   },
   {
-    "name": "ray",
+    "name": "a",
     "score": 160,
-    "time": "00:07",
+    "time": "00:08",
     "rank": 10
   },
   {
@@ -72,9 +72,9 @@
     "rank": 12
   },
   {
-    "name": "e",
+    "name": "jfk",
     "score": 160,
-    "time": "00:10",
+    "time": "00:07",
     "rank": 13
   },
   {
@@ -102,9 +102,9 @@
     "rank": 17
   },
   {
-    "name": "a",
+    "name": "ssd",
     "score": 160,
-    "time": "00:08",
+    "time": "00:10",
     "rank": 18
   },
   {
@@ -126,111 +126,135 @@
     "rank": 21
   },
   {
-    "name": "jfk",
-    "score": 160,
-    "time": "00:07",
-    "rank": 22
-  },
-  {
     "name": "jk",
     "score": 155,
     "time": "00:06",
-    "rank": 23
+    "rank": 22
   },
   {
     "name": ",",
     "score": 155,
     "time": "00:10",
-    "rank": 24
+    "rank": 23
   },
   {
     "name": "r",
     "score": 155,
     "time": "00:05",
-    "rank": 25
+    "rank": 24
   },
   {
     "name": "t",
     "score": 150,
     "time": "00:07",
-    "rank": 26
+    "rank": 25
   },
   {
     "name": "hey",
     "score": 145,
     "time": "00:06",
-    "rank": 27
+    "rank": 26
   },
   {
     "name": "hjo",
     "score": 70,
     "time": "00:16",
+    "rank": 27
+  },
+  {
+    "name": "jk",
+    "score": 65,
+    "time": "00:11",
     "rank": 28
   },
   {
     "name": "jk",
     "score": 65,
-    "time": "00:11",
-    "rank": 29
-  },
-  {
-    "name": "jk",
-    "score": 65,
     "time": "00:14",
-    "rank": 30
+    "rank": 29
   },
   {
     "name": "kdkd",
     "score": 65,
     "time": "00:09",
-    "rank": 31
+    "rank": 30
   },
   {
     "name": "jsjs",
     "score": 65,
     "time": "00:09",
-    "rank": 32
+    "rank": 31
   },
   {
     "name": "djkd",
     "score": 60,
     "time": "00:12",
-    "rank": 33
+    "rank": 32
   },
   {
     "name": "hj",
     "score": 60,
     "time": "00:16",
-    "rank": 34
+    "rank": 33
   },
   {
     "name": "k",
     "score": 55,
     "time": "00:09",
-    "rank": 35
+    "rank": 34
   },
   {
     "name": "kk",
     "score": 55,
     "time": "00:12",
-    "rank": 36
+    "rank": 35
   },
   {
     "name": "k",
     "score": 55,
     "time": "04:35",
-    "rank": 37
+    "rank": 36
   },
   {
     "name": "hj",
     "score": 50,
     "time": "00:08",
-    "rank": 38
+    "rank": 37
   },
   {
     "name": "ks",
     "score": 50,
     "time": "00:11",
+    "rank": 38
+  },
+  {
+    "name": "ray",
+    "score": 0,
+    "time": "00:03",
     "rank": 39
+  },
+  {
+    "name": "yi",
+    "score": 0,
+    "time": "00:03",
+    "rank": 40
+  },
+  {
+    "name": "jj",
+    "score": 0,
+    "time": "00:03",
+    "rank": 41
+  },
+  {
+    "name": "[object Promise]",
+    "score": 0,
+    "time": "00:08",
+    "rank": 42
+  },
+  {
+    "name": "gustavo",
+    "score": 0,
+    "time": "00:03",
+    "rank": 43
   }
 ]

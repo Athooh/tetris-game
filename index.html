@@ -1,31 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tetris Game</title>
-</head>
-<body>
-    <div id="game-container">
-        <div id="game">
-            <!-- Grid -->
-            <svg id="grid" width="300" height="600" viewBox="0 0 300 600"></svg>
-            
-            <!-- Game Controls and Info -->
-            <div id="controls">
-                <div id="score">Score: 0</div>
-                <div id="timer">Time: 00:00</div>
-                <div id="lives">Lives: 3</div>
-                <button id="start">Start Game</button>
-                <button id="pause">Pause</button>
-                <div id="pause-menu">
-                    <button id="continue">Continue</button>
-                    <button id="restart">Restart</button>
-                </div>
-            </div>
+    <meta name="description" content="Modern Tetris Game" />
+    <meta name="author" content="Lovable" />
+    <meta property="og:image" content="/og-image.png" />
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <div class="game-container">
+      <div class="game-stats">
+        <div class="stat-panel">
+          <h2>Score</h2>
+          <p id="score">000000</p>
         </div>
+        
+        <div class="stat-panel">
+          <h2>Level</h2>
+          <p id="level">1</p>
+        </div>
+        
+        <div class="stat-panel">
+          <h2>Lives</h2>
+          <div id="lives" class="lives-container"></div>
+        </div>
+        
+        <div class="stat-panel">
+          <h2>Time</h2>
+          <p id="time">00:00</p>
+        </div>
+      </div>
+
+      <div id="game-board" class="game-board">
+        <svg class="grid-overlay" width="100%" height="100%">
+          <!-- Grid lines will be added here via JavaScript -->
+        </svg>
+        <!-- Cells will be added here -->
+      </div>
     </div>
-    <script src="script.js"></script>
-</body>
+
+    <div id="game-overlay" class="game-overlay"></div>
+
+    <script src="./script.js"></script>
+  </body>
 </html>

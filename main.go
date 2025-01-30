@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -19,16 +20,35 @@ type Score struct {
 	Time  string `json:"time"`
 	Rank  int    `json:"rank"`
 }
+
 func addScore(w http.ResponseWriter, r *http.Request) {
 	var score Score
 	err := json.NewDecoder(r.Body).Decode(&score)
 	if err != nil {
+		log.Println("Error decoding score:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	mutex.Lock()
-	scores = append(scores, score)
+	// Check if name already exists
+	found := false
+	for i := range scores {
+		if scores[i].Name == score.Name {
+			// Update existing score
+			scores[i].Score = score.Score
+			scores[i].Time = score.Time
+			found = true
+			break
+		}
+	}
+
+	// If name doesn't exist, append new score
+	if !found {
+		scores = append(scores, score)
+	}
+
+	// Sort and update ranks
 	sort.Slice(scores, func(i, j int) bool {
 		return scores[i].Score > scores[j].Score
 	})
@@ -39,11 +59,11 @@ func addScore(w http.ResponseWriter, r *http.Request) {
 	}
 	mutex.Unlock()
 
-	// Save scores to a JSON file (optional)
+	// Save scores to a JSON file
 	saveScoresToFile()
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(scores) // Send back updated scores
+	json.NewEncoder(w).Encode(scores)
 }
 
 func getScores(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +121,7 @@ func main() {
 		case http.MethodGet:
 			getScores(w, r)
 		default:
+			log.Println("Method not allowed:", r.Method)
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	})
