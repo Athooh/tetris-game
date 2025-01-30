@@ -42,6 +42,15 @@ let nextTetrominoType = null;
 let nextTetromino = null;
 let currentOffset = 0; // Add this near other game state variables
 
+// Add RAF timing variables
+let lastFrameTime = 0;
+const TARGET_FRAMETIME = 1000 / 60; // 60 FPS
+
+// Add these variables at the top with other game constants
+let fpsCounter = 0;
+let lastFpsUpdate = 0;
+let currentFps = 0;
+
 // DOM Elements
 const gameBoard = document.getElementById('game-board');
 const overlay = document.getElementById('game-overlay');
@@ -51,57 +60,20 @@ const levelElement = document.getElementById('level');
 const livesElement = document.getElementById('lives');
 const timeElement = document.getElementById('time');
 
-// Add this debug logging utility at the top of your file
-const DEBUG = {
-    log: function(message) {
-        const timestamp = new Date().toISOString();
-        const log = `${timestamp}: ${message}`;
-        
-        // Get existing logs
-        let logs = JSON.parse(localStorage.getItem('debugLogs') || '[]');
-        logs.push(log);
-        
-        // Keep only last 50 logs
-        if (logs.length > 50) {
-            logs = logs.slice(-50);
-        }
-        
-        // Save logs
-        localStorage.setItem('debugLogs', JSON.stringify(logs));
-        console.log(message);
-    },
-    
-    clear: function() {
-        localStorage.removeItem('debugLogs');
-    },
-    
-    show: function() {
-        const logs = JSON.parse(localStorage.getItem('debugLogs') || '[]');
-        console.log('=== DEBUG LOGS ===');
-        logs.forEach(log => console.log(log));
-        console.log('================');
-    }
-};
-
 // Add state management functions
 function setGameState(newState) {
-    DEBUG.log(`Setting gameState from '${gameState}' to '${newState}'`);
     gameState = newState;
 }
 
 function saveGameState(state) {
-    DEBUG.log(`Saving game state: ${state}`);
     localStorage.setItem('gameState', state);
 }
 
 function loadGameState() {
-    const state = localStorage.getItem('gameState') || 'start';
-    DEBUG.log(`Loading game state: ${state}`);
-    return state;
+    return localStorage.getItem('gameState') || 'start';
 }
 
 function clearGameState() {
-    DEBUG.log('Clearing game state');
     localStorage.removeItem('gameState');
 }
 
@@ -129,7 +101,7 @@ function updateBoard() {
       const cell = cells[i * BOARD_WIDTH + j];
       const value = board[i][j];
       cell.style.backgroundColor = value ? COLORS[value] : 'transparent';
-      cell.classList.remove('tetromino', 'ghost', 'placed');
+      cell.classList.remove('tetromino', 'placed');
       cell.style.transform = 'none';
       if (value) {
         cell.style.setProperty('--glow-color', COLORS[value]);
@@ -157,22 +129,7 @@ function updateBoard() {
     }
   }
   
-  // Draw ghost piece last
-  const ghostPos = getGhostPosition();
-  if (ghostPos && currentTetromino) {
-    for (let i = 0; i < currentTetromino.length; i++) {
-      for (let j = 0; j < currentTetromino[i].length; j++) {
-        if (currentTetromino[i][j]) {
-          const y = ghostPos.y + i;
-          const x = ghostPos.x + j;
-          if (y >= 0) {
-            const cell = cells[y * BOARD_WIDTH + x];
-            cell.classList.add('ghost');
-          }
-        }
-      }
-    }
-  }
+
 }
 
 // Update Lives Display
@@ -192,11 +149,8 @@ function updateTime() {
 
 // Start Game
 function startGame() {
-    DEBUG.log('Starting new game');
     clearGameState();
     if (gameState === 'highscores' || gameState === 'start' || gameState === 'over') {
-        // Allow starting game from high scores screen, initial start, or after game over
-        console.log('Game starting...');
         gameState = 'playing';
         startTime = new Date();
         overlay.style.display = 'none';
@@ -238,27 +192,35 @@ function pauseGame() {
   const pauseContent = `
     <div class="overlay-content">
       <h2 style="font-size: 2rem; margin-bottom: 1.5rem;">Game Paused</h2>
-      <button class="game-button" onclick="resumeGame()">Continue</button>
-      <button class="game-button" onclick="startGame()" style="margin: 1rem;">Restart</button>
-      <button class="game-button" onclick="quitGame()" style="background: var(--destructive);">Quit</button>
+      <button class="game-button" id="continueButton">Continue</button>
+      <button class="game-button" id="restartButton" style="margin: 1rem;">Restart</button>
+      <button class="game-button" id="quitButton" style="background: var(--destructive);">Quit</button>
     </div>
   `;
   
   overlay.innerHTML = pauseContent;
   overlay.style.display = 'flex';
+
+  // Add event listeners after creating the buttons
+  document.getElementById('continueButton').addEventListener('click', resumeGame);
+  document.getElementById('restartButton').addEventListener('click', () => {
+    gameState = 'start'; // Reset game state before starting
+    startGame();
+  });
+  document.getElementById('quitButton').addEventListener('click', quitGame);
 }
 
-// Resume Game
 function resumeGame() {
   if (gameState !== 'paused') return;
   gameState = 'playing';
   overlay.style.display = 'none';
   gameInterval = setInterval(updateTime, 1000);
+  lastDropTime = performance.now(); // Reset drop time to prevent immediate drop
+  requestAnimationFrame(gameLoop); // Restart the game loop
 }
 
 // Quit Game
 function quitGame() {
-    DEBUG.log('Quitting game');
     clearGameState();
     gameState = 'start';
     clearInterval(gameInterval);
@@ -320,21 +282,14 @@ document.addEventListener('keydown', (e) => {
 
 // Initialize the game when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    DEBUG.log('Page loaded - Initializing game');
-    DEBUG.show();
-    
     const savedState = loadGameState();
-    DEBUG.log(`Loaded saved state: ${savedState}`);
-    
-    setGameState('start'); // Explicitly set initial game state
+    setGameState('start');
     initializeBoard();
     updateLives();
     
-    // Handle different states
     switch (savedState) {
         case 'highscores':
-            DEBUG.log('Restoring high scores display');
-            showHighScores(null); // This will load scores from localStorage
+            showHighScores(null);
             break;
         case 'start':
         default:
@@ -346,28 +301,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function spawnTetromino() {
   if (!nextTetrominoType) {
-    const shapes = Object.keys(TETROMINOES);
-    nextTetrominoType = shapes[Math.floor(Math.random() * shapes.length)];
+    nextTetrominoType = Object.keys(TETROMINOES)[Math.floor(Math.random() * Object.keys(TETROMINOES).length)];
     nextTetromino = TETROMINOES[nextTetrominoType];
   }
-  
+
   currentTetrominoType = nextTetrominoType;
   currentTetromino = nextTetromino;
-  
-  const shapes = Object.keys(TETROMINOES);
-  nextTetrominoType = shapes[Math.floor(Math.random() * shapes.length)];
+
+  nextTetrominoType = Object.keys(TETROMINOES)[Math.floor(Math.random() * Object.keys(TETROMINOES).length)];
   nextTetromino = TETROMINOES[nextTetrominoType];
-  
+
   currentPosition = { 
     x: Math.floor(BOARD_WIDTH / 2) - 1, 
     y: 0 
   };
-  
+
   updateNextTetrominoDisplay();
-  
+
   if (checkCollision(currentPosition.x, currentPosition.y, currentTetromino)) {
-    gameOver();
+    lives--;
+    updateLives();
+
+    if (lives <= 0) {
+      gameOver();
+    } else {
+      showLivesOverlay();
+    }
+    return false;
   }
+  return true;
 }
 
 function checkCollision(x, y, tetromino) {
@@ -416,7 +378,12 @@ function rotateTetromino() {
   }
 }
 
+// Add board change tracking
+let boardChanged = false;
+
+// Update placeTetromino to track changes
 function placeTetromino() {
+  boardChanged = true;
   for (let row = 0; row < currentTetromino.length; row++) {
     for (let col = 0; col < currentTetromino[row].length; col++) {
       if (currentTetromino[row][col]) {
@@ -431,7 +398,7 @@ function placeTetromino() {
 function clearLines() {
   let linesCleared = 0;
   const linesToClear = [];
-
+  
   // First pass: identify lines to clear
   for (let row = BOARD_HEIGHT - 1; row >= 0; row--) {
     if (board[row].every(cell => cell !== 0)) {
@@ -442,31 +409,35 @@ function clearLines() {
 
   if (linesCleared > 0) {
     const cells = gameBoard.getElementsByClassName('cell');
-    
-    // Add animation to clearing cells
-    linesToClear.forEach(row => {
-      for (let col = 0; col < BOARD_WIDTH; col++) {
-        const cell = cells[row * BOARD_WIDTH + col];
-        cell.classList.add('clearing');
-        // Clear the board immediately to prevent ghost pieces
-        board[row][col] = 0;
-      }
-    });
 
-    // Wait for animation to complete before updating board
-    setTimeout(() => {
+    // Batch DOM updates
+    requestAnimationFrame(() => {
+      // Add animation to clearing cells
       linesToClear.forEach(row => {
-        board.splice(row, 1);
-        board.unshift(Array(BOARD_WIDTH).fill(0));
+        for (let col = 0; col < BOARD_WIDTH; col++) {
+          const cell = cells[row * BOARD_WIDTH + col];
+          cell.style.transform = 'translate3d(0,0,0)';
+          cell.classList.add('clearing');
+          board[row][col] = 0;
+        }
       });
-      
-      // Update score and level
-      score += linesCleared * 100;
-      updateLevel(linesCleared);
-      
-      scoreElement.textContent = score.toString().padStart(6, '0');
-      updateBoard();
-    }, 300);
+
+      // Use requestAnimationFrame for the post-animation update
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          linesToClear.forEach(row => {
+            board.splice(row, 1);
+            board.unshift(Array(BOARD_WIDTH).fill(0));
+          });
+
+          score += linesCleared * 100;
+          updateLevel(linesCleared);
+          scoreElement.textContent = score.toString().padStart(6, '0');
+          boardChanged = true; // Flag for efficient board update
+          updateBoardEfficient();
+        });
+      }, 300); // Match this with your CSS animation duration
+    });
 
     return true;
   }
@@ -475,131 +446,238 @@ function clearLines() {
 
 // Add new function to handle level updates
 function updateLevel(linesCleared) {
-  if (level === 10 && linesCleared > 0) {
-    gameState = 'completed';
-    clearInterval(gameInterval);
-    showScoreSubmission();
-    return;
-  }
   // Track total lines cleared for this level
   if (!window.linesForCurrentLevel) {
     window.linesForCurrentLevel = 0;
   }
   window.linesForCurrentLevel += linesCleared;
 
-  if (level === 10 && linesCleared >= 10) {
-    // Show congratulations message
-    gameState = 'completed';
-    clearInterval(gameInterval);
-    
-    const completionContent = `
-      <div class="overlay-content">
-        <h2 style="font-size: 2rem; color: var(--primary);">Congratulations! 🎉</h2>
-        <p style="margin: 1rem 0;">You've mastered level 10!</p>
-        <p style="font-size: 3rem; color: var(--primary); font-family: monospace; margin-bottom: 1.5rem;">
-          ${score.toString().padStart(6, '0')}
-        </p>
-        <button class="game-button" onclick="startGame()">Play Again</button>
-        <button class="game-button" onclick="quitGame()" style="margin-top: 1rem; background: var(--secondary);">
-          Quit
-        </button>
-      </div>
-    `;
-    
-    overlay.innerHTML = completionContent;
-    overlay.style.display = 'flex';
-    return;
-  }
-
   // Level up after clearing 10 lines
-  if (window.linesForCurrentLevel >= 10 && level < 10) {
-    level = Math.min(10, level + 1);
-    window.linesForCurrentLevel = 0; // Reset lines for next level
-    levelElement.textContent = level.toString();
-    // Update drop interval based on level
-    DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
-    updateVisibility();
+  if (window.linesForCurrentLevel >= 10) {
+    if (level === 10) {
+      // Show congratulations message
+      gameState = 'completed';
+      clearInterval(gameInterval);
+      
+      const completionContent = `
+        <div class="overlay-content">
+          <h2 style="font-size: 2rem; color: var(--primary);">Congratulations! 🎉</h2>
+          <p style="margin: 1rem 0;">You've mastered level 10!</p>
+          <p style="font-size: 3rem; color: var(--primary); font-family: monospace; margin-bottom: 1.5rem;">
+            ${score.toString().padStart(6, '0')}
+          </p>
+          <button class="game-button" onclick="startGame()">Play Again</button>
+          <button class="game-button" onclick="quitGame()" style="margin-top: 1rem; background: var(--secondary);">
+            Quit
+          </button>
+        </div>
+      `;
+      
+      overlay.innerHTML = completionContent;
+      overlay.style.display = 'flex';
+      showScoreSubmission();
+      return;
+    } else {
+      level = Math.min(10, level + 1);
+      window.linesForCurrentLevel = 0; // Reset lines for next level
+      levelElement.textContent = level.toString();
+      // Update drop interval based on level
+      DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
+      updateVisibility();
+    }
   }
 }
 
 // Add new function to handle visibility changes
 function updateVisibility() {
-  // Make elements completely invisible at level 10
-  const ghostOpacity = level === 10 ? 0 : Math.max(0.1, 1 - (level - 1) * 0.12);
+
   const nextOpacity = level === 10 ? 0 : Math.max(0.1, 1 - (level - 1) * 0.12);
   
-  document.documentElement.style.setProperty('--ghost-opacity', ghostOpacity.toString());
+  
   document.documentElement.style.setProperty('--next-piece-opacity', nextOpacity.toString());
 }
 
+// Add this function to display FPS
+function updateFPS(timestamp) {
+  fpsCounter++;
+  
+  if (timestamp - lastFpsUpdate >= 1000) {
+    currentFps = fpsCounter;
+    console.log(`FPS: ${currentFps}, Level: ${level}`);
+    // You can also add this to the UI if you want
+    fpsCounter = 0;
+    lastFpsUpdate = timestamp;
+  }
+}
+
+// Modify gameLoop to include FPS counting
 function gameLoop(timestamp) {
-  if (gameState === 'playing') {
-    const deltaTime = timestamp - lastDropTime;
-    
-    // Simple linear interpolation without any easing
-    currentOffset = deltaTime / DROP_INTERVAL;
-    
-    if (deltaTime >= DROP_INTERVAL) {
-      currentOffset = 0;
-      moveTetromino(0, 1);
-      lastDropTime = timestamp;
+  if (gameState !== 'playing') return;
+
+  updateFPS(timestamp);
+
+  const deltaTime = timestamp - lastFrameTime;
+  if (deltaTime < TARGET_FRAMETIME) {
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  // Update game logic
+  const dropDelta = timestamp - lastDropTime;
+  if (dropDelta >= DROP_INTERVAL) {
+    moveTetromino(0, 1);
+    lastDropTime = timestamp;
+  } else {
+    currentOffset = dropDelta / DROP_INTERVAL;
+  }
+
+  // Use a single RAF call and update the board directly
+  updateBoardEfficient();
+  lastFrameTime = timestamp;
+  requestAnimationFrame(gameLoop);
+}
+// Optimized board update function
+function updateBoardEfficient() {
+  const cells = gameBoard.getElementsByClassName('cell');
+  
+  // Use requestAnimationFrame for board updates
+  requestAnimationFrame(() => {
+    // Only update placed pieces if board changed
+    if (boardChanged) {
+      const fragment = document.createDocumentFragment();
+      
+      for (let i = 0; i < BOARD_HEIGHT; i++) {
+        for (let j = 0; j < BOARD_WIDTH; j++) {
+          const cell = cells[i * BOARD_WIDTH + j];
+          const value = board[i][j];
+          
+          if (value) {
+            cell.style.transform = 'translate3d(0,0,0)';
+            cell.style.backgroundColor = COLORS[value];
+            if (!cell.classList.contains('tetromino')) {
+              cell.classList.add('tetromino', 'placed');
+            }
+            cell.style.setProperty('--glow-color', COLORS[value]);
+          } else if (cell.classList.contains('placed')) {
+            cell.style.backgroundColor = 'transparent';
+            cell.classList.remove('tetromino', 'placed');
+            cell.style.transform = 'none';
+          }
+        }
+      }
+      
+      boardChanged = false;
     }
     
-    updateBoard();
-    animationId = requestAnimationFrame(gameLoop);
-  }
+    // Update current piece with optimized rendering
+    if (currentTetromino && currentPosition) {
+      const offsetY = Math.round(currentOffset * 32);
+      const currentPieceCells = new Set();
+      
+      for (let i = 0; i < currentTetromino.length; i++) {
+        for (let j = 0; j < currentTetromino[i].length; j++) {
+          if (currentTetromino[i][j]) {
+            const y = currentPosition.y + i;
+            const x = currentPosition.x + j;
+            if (y >= 0) {
+              const index = y * BOARD_WIDTH + x;
+              currentPieceCells.add(index);
+              const cell = cells[index];
+              cell.style.transform = `translate3d(0,${offsetY}px,0)`;
+              cell.style.backgroundColor = COLORS[currentTetrominoType];
+              if (!cell.classList.contains('tetromino')) {
+                cell.classList.add('tetromino', 'current-piece');
+              }
+            }
+          }
+        }
+      }
+      
+      // Clear only cells that are no longer part of the current piece
+      document.querySelectorAll('.current-piece').forEach(cell => {
+        const index = Array.from(cells).indexOf(cell);
+        if (!currentPieceCells.has(index)) {
+          cell.classList.remove('current-piece', 'tetromino');
+          cell.style.backgroundColor = 'transparent';
+          cell.style.transform = 'none';
+        }
+      });
+    }
+  });
 }
 
 function createGridLines() {
   const svg = document.querySelector('.grid-overlay');
-  const cellSize = 32; // 2rem = 32px
+  const cellSize = 32;
   const width = BOARD_WIDTH * cellSize;
   const height = BOARD_HEIGHT * cellSize;
   
-  // Set SVG dimensions explicitly
-  svg.setAttribute('width', width);
-  svg.setAttribute('height', height);
-  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.style.width = `${width}px`;
-  svg.style.height = `${height}px`;
+  // Create SVG content in memory
+  const svgContent = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   
-  // Create vertical lines
+  // Create lines using a single path element
+  const pathData = [];
+  
+  // Vertical lines
   for (let i = 0; i <= BOARD_WIDTH; i++) {
     const x = i * cellSize;
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', x);
-    line.setAttribute('y1', 0);
-    line.setAttribute('x2', x);
-    line.setAttribute('y2', height);
-    line.setAttribute('stroke', '#1a1a1a');
-    line.setAttribute('stroke-width', '1');
-    svg.appendChild(line);
+    pathData.push(`M ${x} 0 L ${x} ${height}`);
   }
   
-  // Create horizontal lines
+  // Horizontal lines
   for (let i = 0; i <= BOARD_HEIGHT; i++) {
     const y = i * cellSize;
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', 0);
-    line.setAttribute('y1', y);
-    line.setAttribute('x2', width);
-    line.setAttribute('y2', y);
-    line.setAttribute('stroke', '#1a1a1a');
-    line.setAttribute('stroke-width', '1');
-    svg.appendChild(line);
+    pathData.push(`M 0 ${y} L ${width} ${y}`);
   }
   
-  // Add border rectangle
-  const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  border.setAttribute('x', '0');
-  border.setAttribute('y', '0');
-  border.setAttribute('width', width);
-  border.setAttribute('height', height);
-  border.setAttribute('fill', 'none');
-  border.setAttribute('stroke', '#1a1a1a');
-  border.setAttribute('stroke-width', '1');
-  svg.appendChild(border);
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', pathData.join(' '));
+  path.setAttribute('stroke', '#1a1a1a');
+  path.setAttribute('stroke-width', '1');
+  path.setAttribute('vector-effect', 'non-scaling-stroke');
+  
+  svgContent.appendChild(path);
+  
+  // Clear and update SVG
+  svg.innerHTML = '';
+  svg.appendChild(svgContent);
 }
+
+// Add CSS will-change hints
+document.head.insertAdjacentHTML('beforeend', `
+  <style>
+    @keyframes clearLine {
+      0% {
+        transform: translate3d(0,0,0);
+        opacity: 1;
+      }
+      50% {
+        transform: translate3d(0,0,5px);
+        opacity: 0.5;
+        filter: brightness(2);
+      }
+      100% {
+        transform: translate3d(0,0,-10px);
+        opacity: 0;
+      }
+    }
+    
+    .cell {
+      will-change: transform, background-color;
+      transform: translate3d(0,0,0);
+      backface-visibility: hidden;
+    }
+    
+    .tetromino {
+      will-change: transform;
+    }
+    
+    .clearing {
+      animation: clearLine 0.3s ease-out forwards;
+      z-index: 2;
+    }
+  </style>
+`);
 
 function updateNextTetrominoDisplay() {
   const nextPieceGrid = document.querySelector('.next-piece-grid');
@@ -658,29 +736,15 @@ function hexToRgb(hex) {
   } : null;
 }
 
-function getGhostPosition() {
-  if (!currentTetromino) return null;
-  
-  let ghostY = currentPosition.y;
-  while (!checkCollision(currentPosition.x, ghostY + 1, currentTetromino)) {
-    ghostY++;
-  }
-  
-  return {
-    x: currentPosition.x,
-    y: ghostY
-  };
-}
 
 function hardDrop() {
-  const ghostPos = getGhostPosition();
-  if (ghostPos) {
-    currentOffset = 0;
-    currentPosition.y = ghostPos.y;
-    placeTetromino();
-    if (!clearLines()) {
-      spawnTetromino();
-    }
+  while (!checkCollision(currentPosition.x, currentPosition.y + 1, currentTetromino)) {
+    currentPosition.y++;
+  }
+  currentOffset = 0;
+  placeTetromino();
+  if (!clearLines()) {
+    spawnTetromino();
   }
 }
 
@@ -745,19 +809,14 @@ function showScoreSubmission() {
 }
 
 function handleScoreSubmit(event) {
-    DEBUG.log('handleScoreSubmit: Starting');
-    // Ensure we have the event object and prevent any form submission
     if (event) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        DEBUG.log('Prevented all event propagation');
     }
     
     const nameInput = document.getElementById('playerName');
     const name = nameInput.value.trim();
-    
-    DEBUG.log(`handleScoreSubmit: Name entered: ${name}`);
     
     if (name) {
         const submitBtn = document.getElementById('submitScoreBtn');
@@ -766,32 +825,24 @@ function handleScoreSubmit(event) {
             submitBtn.textContent = 'Submitting...';
         }
         
-        DEBUG.log('handleScoreSubmit: Removing submission overlay');
         const submissionOverlay = document.querySelector('.score-submission');
         if (submissionOverlay) {
             submissionOverlay.parentElement.remove();
         }
         
-        DEBUG.log('handleScoreSubmit: Showing loading state');
         showHighScores(null);
         
-        DEBUG.log('handleScoreSubmit: Submitting score');
-        // Wrap the submitScore call in a try-catch to prevent any unhandled rejections
         try {
             submitScore(name, score, timeElement.textContent)
-                .catch(error => {
-                    DEBUG.log(`Score submission failed: ${error.message}`);
-                });
+                .catch(error => console.error('Score submission failed:', error));
         } catch (error) {
-            DEBUG.log(`Error in score submission: ${error.message}`);
+            console.error('Error in score submission:', error);
         }
     } else {
-        DEBUG.log('handleScoreSubmit: No name entered');
         nameInput.classList.add('error');
         setTimeout(() => nameInput.classList.remove('error'), 1000);
     }
     
-    // Return false and prevent default one more time
     if (event) {
         event.preventDefault();
     }
@@ -799,9 +850,8 @@ function handleScoreSubmit(event) {
 }
 
 async function submitScore(name, score, time) {
-    DEBUG.log(`submitScore: Starting with: ${JSON.stringify({ name, score, time })}`);
     try {
-        DEBUG.log('submitScore: Sending request to server');
+        console.log('submitScore: Sending request to server');
         const response = await fetch('http://localhost:8080/api/scores', {
             method: 'POST',
             headers: {
@@ -811,21 +861,20 @@ async function submitScore(name, score, time) {
             body: JSON.stringify({ name, score, time })
         });
         
-        DEBUG.log(`submitScore: Server response status: ${response.status}`);
+        console.log(`submitScore: Server response status: ${response.status}`);
         
         if (response.ok) {
             const scores = await response.json();
-            DEBUG.log('submitScore: Received scores from server');
+            console.log('submitScore: Received scores from server');
             // Wrap the showHighScores call in a setTimeout to ensure it runs after current execution
             setTimeout(() => {
                 showHighScores(scores);
-                DEBUG.log('Score display updated');
             }, 0);
         } else {
             throw new Error('Failed to submit score');
         }
     } catch (error) {
-        DEBUG.log(`submitScore: Error occurred: ${error.message}`);
+        console.error('Error occurred:', error);
         showHighScores('error');
         throw error;
     }
@@ -854,14 +903,10 @@ async function fetchAndShowHighScores() {
 
 // Update showHighScores to handle the high scores display from main menu
 function showHighScores(scores) {
-    DEBUG.log(`showHighScores called with scores: ${JSON.stringify(scores)}`);
-    
-    // Save the scores if they exist
     if (scores && scores !== 'error') {
         localStorage.setItem('lastScores', JSON.stringify(scores));
     }
     
-    // Load scores from localStorage if none provided
     if (!scores && localStorage.getItem('lastScores')) {
         scores = JSON.parse(localStorage.getItem('lastScores'));
     }
@@ -870,7 +915,6 @@ function showHighScores(scores) {
     
     // Loading state
     if (scores === null) {
-        DEBUG.log('Showing loading state');
         overlay.innerHTML = `
             <div class="overlay-content high-scores">
                 <h2>High Scores</h2>
@@ -887,7 +931,6 @@ function showHighScores(scores) {
     
     // Error state
     if (scores === 'error') {
-        DEBUG.log('Showing error state');
         overlay.innerHTML = `
             <div class="overlay-content high-scores">
                 <h2>Error Loading Scores</h2>
@@ -903,7 +946,6 @@ function showHighScores(scores) {
     }
     
     // Success state with scores
-    DEBUG.log('Showing scores display');
     overlay.innerHTML = `
         <div class="overlay-content high-scores">
             <h2>High Scores</h2>
@@ -977,15 +1019,10 @@ function showHighScores(scores) {
             }
         });
     }
-    
-    DEBUG.log(`Final gameState: ${gameState}`);
 }
 
 function showStartOverlay() {
-    DEBUG.log(`showStartOverlay called with gameState: ${gameState}`);
-    
     if (gameState !== 'highscores' && gameState !== 'paused') {
-        DEBUG.log('Showing start overlay');
         const startContent = `
             <div class="overlay-content">
                 <h1 class="game-title">TETRIS</h1>
@@ -1004,7 +1041,117 @@ function showStartOverlay() {
         
         overlay.innerHTML = startContent;
         overlay.style.display = 'flex';
-    } else {
-        DEBUG.log(`Not showing start overlay because gameState is: ${gameState}`);
     }
+}
+
+// Initialize worker
+let gameWorker;
+try {
+  gameWorker = new Worker('worker.js');
+  
+  gameWorker.onmessage = function(e) {
+    const { type, data } = e.data;
+    switch(type) {
+      case 'scoreResult':
+        updateScore(data.score);
+        break;
+      case 'highScoreResult':
+        handleHighScore(data.isHighScore);
+        break;
+      case 'nextPieceResult':
+        handleNextPiece(data.nextPiece);
+        break;
+      case 'performanceReport':
+        console.debug('Worker Performance:', data);
+        break;
+      case 'error':
+        console.error('Worker Error:', data.error);
+        break;
+    }
+  };
+  
+  gameWorker.onerror = function(error) {
+    console.error('Worker Error:', error);
+    // Fallback to main thread processing if worker fails
+    gameWorker = null;
+  };
+  
+} catch (error) {
+  console.error('Worker initialization failed:', error);
+  gameWorker = null;
+}
+
+// Example usage in your game functions
+function calculateScore(lines) {
+  if (gameWorker) {
+    gameWorker.postMessage({
+      type: 'calculateScore',
+      data: { lines, level }
+    });
+  } else {
+    // Fallback to main thread processing
+    const score = lines * 100 * level;
+    updateScore(score);
+  }
+}
+
+function generateNextPiece() {
+  if (gameWorker) {
+    gameWorker.postMessage({
+      type: 'generateNextPiece'
+    });
+  } else {
+    // Fallback to main thread processing
+    const piece = generateNextPieceSync();
+    handleNextPiece(piece);
+  }
+}
+
+function updateNonCriticalUI() {
+  requestIdleCallback(() => {
+    updateNextTetrominoDisplay();
+    updateTime();
+    updateLives();
+  }, { timeout: 100 });
+}
+
+function showLivesOverlay() {
+  gameState = 'paused';
+  clearInterval(gameInterval);
+  
+  const livesContent = `
+    <div class="overlay-content">
+      <h2 style="font-size: 2rem; color: var(--destructive);">Oops!</h2>
+      <p style="margin: 1rem 0;">You lost a life!</p>
+      <p style="font-size: 1.5rem; color: var(--primary); margin-bottom: 1.5rem;">
+        Lives remaining: ${lives}
+      </p>
+      <button class="game-button" onclick="continuePlaying()">Continue</button>
+    </div>
+  `;
+  
+  overlay.innerHTML = livesContent;
+  overlay.style.display = 'flex';
+}
+
+function continuePlaying() {
+  gameState = 'playing';
+  overlay.style.display = 'none';
+  
+  // Clear the entire board
+  board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+  
+  // Reset piece position and update board
+  currentPosition = { 
+    x: Math.floor(BOARD_WIDTH / 2) - 1, 
+    y: 0 
+  };
+  
+  boardChanged = true;
+  updateBoardEfficient();
+  
+  // Restart game interval and loop
+  gameInterval = setInterval(updateTime, 1000);
+  lastDropTime = performance.now();
+  requestAnimationFrame(gameLoop);
 }

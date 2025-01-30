@@ -5,7 +5,7 @@
   --secondary: #004400;   /* Darker green for contrast */
   --accent: #00CC00;      /* Medium green for accents */
   --destructive: #FF0000; /* Classic red for destructive actions */
-  --ghost-opacity: 1;
+  
   --next-piece-opacity: 1;
   
   /* Tetromino Colors */
@@ -174,13 +174,7 @@ body {
               inset 0 0 8px var(--glow-color);
 }
 
-.ghost {
-  background-color: rgba(128, 128, 128, 0.2) !important;
-  border: none;
-  opacity: var(--ghost-opacity);
-  transition: opacity 0.3s ease;
-  z-index: 1;
-}
+
 
 .next-piece {
   opacity: var(--next-piece-opacity);
