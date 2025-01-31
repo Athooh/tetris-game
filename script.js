@@ -51,6 +51,9 @@ let fpsCounter = 0;
 let lastFpsUpdate = 0;
 let currentFps = 0;
 
+// Add these variables to the game state section at the top
+let linesForCurrentLevel = 0;  // Move from window object to proper game state
+
 // DOM Elements
 const gameBoard = document.getElementById('game-board');
 const overlay = document.getElementById('game-overlay');
@@ -158,6 +161,8 @@ function startGame() {
         // Reset game state but keep the selected level
         score = 0;
         lives = 3;
+        linesForCurrentLevel = 0;  // Reset lines counter
+        document.getElementById('lines-cleared').textContent = '0';
         board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
         
         // Initialize board and spawn first tetromino
@@ -172,9 +177,6 @@ function startGame() {
         // Set drop interval based on current level
         DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
         updateVisibility();
-        
-        // Reset lines counter when starting new game
-        window.linesForCurrentLevel = 0;
         
         lastDropTime = performance.now();
         if (gameInterval) clearInterval(gameInterval);
@@ -332,15 +334,32 @@ function spawnTetromino() {
   return true;
 }
 
-function checkCollision(x, y, tetromino) {
+function checkCollision(x, y, tetromino, offset = 0) {
+  // Convert offset to actual position change and ensure it's not fractional
+  const effectiveY = Math.floor(y + offset);
+  
+  // Check if the effective position would cause any overlap
   for (let row = 0; row < tetromino.length; row++) {
     for (let col = 0; col < tetromino[row].length; col++) {
       if (tetromino[row][col]) {
         const newX = x + col;
-        const newY = y + row;
-        if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT || 
-            (newY >= 0 && board[newY][newX])) {
+        const newY = effectiveY + row;
+        
+        // Check boundaries
+        if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) {
           return true;
+        }
+        
+        // Check collision with placed pieces
+        // Include an additional check for the cell above if there's an offset
+        if (newY >= 0) {
+          if (board[newY][newX]) {
+            return true;
+          }
+          // If we have an offset, also check the cell above to prevent overlap during animation
+          if (offset > 0 && newY > 0 && board[newY - 1][newX]) {
+            return true;
+          }
         }
       }
     }
@@ -351,7 +370,11 @@ function checkCollision(x, y, tetromino) {
 function moveTetromino(dx, dy) {
   const newX = currentPosition.x + dx;
   const newY = currentPosition.y + dy;
-  if (!checkCollision(newX, newY, currentTetromino)) {
+  
+  // Calculate potential new offset for downward movement
+  const potentialOffset = dy === 1 ? currentOffset : 0;
+  
+  if (!checkCollision(newX, newY, currentTetromino, potentialOffset)) {
     currentPosition.x = newX;
     currentPosition.y = newY;
     if (dy > 0) {
@@ -362,9 +385,16 @@ function moveTetromino(dx, dy) {
   } else if (dy === 1) {
     currentOffset = 0;
     placeTetromino();
-    if (!clearLines()) {
-      spawnTetromino();
-    }
+    
+    requestAnimationFrame(() => {
+      if (clearLines()) {
+        setTimeout(() => {
+          spawnTetromino();
+        }, 300);
+      } else {
+        spawnTetromino();
+      }
+    });
   }
 }
 
@@ -410,82 +440,67 @@ function clearLines() {
   if (linesCleared > 0) {
     const cells = gameBoard.getElementsByClassName('cell');
 
-    // Batch DOM updates
-    requestAnimationFrame(() => {
-      // Add animation to clearing cells
-      linesToClear.forEach(row => {
-        for (let col = 0; col < BOARD_WIDTH; col++) {
-          const cell = cells[row * BOARD_WIDTH + col];
-          cell.style.transform = 'translate3d(0,0,0)';
-          cell.classList.add('clearing');
-          board[row][col] = 0;
+   
+      // Remove the lines from the board array
+      for (let i = linesToClear.length - 1; i >= 0; i--) {
+        const row = linesToClear[i];
+        board.splice(row, 1);
+        board.unshift(Array(BOARD_WIDTH).fill(0));
+      }
+
+      // Update score
+      score += linesCleared * 100;
+      scoreElement.textContent = score.toString().padStart(6, '0');
+      
+      // Update level and lines count
+      linesForCurrentLevel += linesCleared;
+      document.getElementById('lines-cleared').textContent = linesForCurrentLevel;
+      
+      // Check for level up only after updating lines
+      if (linesForCurrentLevel >= 10) {
+        if (level < 10) {
+          level++;
+          linesForCurrentLevel = 0;
+          document.getElementById('lines-cleared').textContent = '0';
+          levelElement.textContent = level.toString();
+          DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
+          updateVisibility();
+        } else if (level === 10) {
+          handleLevelTenCompletion();
         }
-      });
-
-      // Use requestAnimationFrame for the post-animation update
-      setTimeout(() => {
-        requestAnimationFrame(() => {
-          linesToClear.forEach(row => {
-            board.splice(row, 1);
-            board.unshift(Array(BOARD_WIDTH).fill(0));
-          });
-
-          score += linesCleared * 100;
-          updateLevel(linesCleared);
-          scoreElement.textContent = score.toString().padStart(6, '0');
-          boardChanged = true; // Flag for efficient board update
-          updateBoardEfficient();
-        });
-      }, 300); // Match this with your CSS animation duration
-    });
+      }
+      
+      // Force a complete board redraw
+      boardChanged = true;
+      updateBoardEfficient();
+     // Match this with your CSS animation duration
 
     return true;
   }
   return false;
 }
-
-// Add new function to handle level updates
-function updateLevel(linesCleared) {
-  // Track total lines cleared for this level
-  if (!window.linesForCurrentLevel) {
-    window.linesForCurrentLevel = 0;
-  }
-  window.linesForCurrentLevel += linesCleared;
-
-  // Level up after clearing 10 lines
-  if (window.linesForCurrentLevel >= 10) {
-    if (level === 10) {
-      // Show congratulations message
-      gameState = 'completed';
-      clearInterval(gameInterval);
-      
-      const completionContent = `
-        <div class="overlay-content">
-          <h2 style="font-size: 2rem; color: var(--primary);">Congratulations! 🎉</h2>
-          <p style="margin: 1rem 0;">You've mastered level 10!</p>
-          <p style="font-size: 3rem; color: var(--primary); font-family: monospace; margin-bottom: 1.5rem;">
-            ${score.toString().padStart(6, '0')}
-          </p>
-          <button class="game-button" onclick="startGame()">Play Again</button>
-          <button class="game-button" onclick="quitGame()" style="margin-top: 1rem; background: var(--secondary);">
-            Quit
-          </button>
-        </div>
-      `;
-      
-      overlay.innerHTML = completionContent;
-      overlay.style.display = 'flex';
-      showScoreSubmission();
-      return;
-    } else {
-      level = Math.min(10, level + 1);
-      window.linesForCurrentLevel = 0; // Reset lines for next level
-      levelElement.textContent = level.toString();
-      // Update drop interval based on level
-      DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
-      updateVisibility();
-    }
-  }
+// Add new function to handle level 10 completion
+function handleLevelTenCompletion() {
+  gameState = 'completed';
+  clearInterval(gameInterval);
+  
+  const completionContent = `
+    <div class="overlay-content">
+      <h2 style="font-size: 2rem; color: var(--primary);">Congratulations! 🎉</h2>
+      <p style="margin: 1rem 0;">You've mastered level 10!</p>
+      <p style="font-size: 3rem; color: var(--primary); font-family: monospace; margin-bottom: 1.5rem;">
+        ${score.toString().padStart(6, '0')}
+      </p>
+      <button class="game-button" onclick="startGame()">Play Again</button>
+      <button class="game-button" onclick="quitGame()" style="margin-top: 1rem; background: var(--secondary);">
+        Quit
+      </button>
+    </div>
+  `;
+  
+  overlay.innerHTML = completionContent;
+  overlay.style.display = 'flex';
+  showScoreSubmission();
 }
 
 // Add new function to handle visibility changes
@@ -510,7 +525,7 @@ function updateFPS(timestamp) {
   }
 }
 
-// Modify gameLoop to include FPS counting
+// Update gameLoop to be more strict with collision checks
 function gameLoop(timestamp) {
   if (gameState !== 'playing') return;
 
@@ -528,10 +543,18 @@ function gameLoop(timestamp) {
     moveTetromino(0, 1);
     lastDropTime = timestamp;
   } else {
-    currentOffset = dropDelta / DROP_INTERVAL;
+    // Calculate new offset and check for collision before applying
+    const newOffset = dropDelta / DROP_INTERVAL;
+    // Add a small buffer to prevent any possibility of overlap
+    if (!checkCollision(currentPosition.x, currentPosition.y, currentTetromino, newOffset + 0.01)) {
+      currentOffset = newOffset;
+    } else {
+      // If collision would occur, force piece to place
+      currentOffset = 0;
+      moveTetromino(0, 1);
+    }
   }
 
-  // Use a single RAF call and update the board directly
   updateBoardEfficient();
   lastFrameTime = timestamp;
   requestAnimationFrame(gameLoop);
@@ -743,15 +766,24 @@ function hardDrop() {
   }
   currentOffset = 0;
   placeTetromino();
-  if (!clearLines()) {
-    spawnTetromino();
-  }
+  
+  // Wait for the piece to be placed before checking lines
+  requestAnimationFrame(() => {
+    if (clearLines()) {
+      // Only spawn new tetromino after lines are cleared
+      setTimeout(() => {
+        spawnTetromino();
+      }, 300); // Match this with line clearing animation duration
+    } else {
+      spawnTetromino();
+    }
+  });
 }
 
 // Add new function to set starting level
 function setStartLevel(selectedLevel) {
   level = selectedLevel;
-  window.linesForCurrentLevel = 0;  // Reset lines counter when changing level
+  linesForCurrentLevel = 0;  // Reset lines counter when changing level
   DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
   updateVisibility();
   levelElement.textContent = level.toString();
