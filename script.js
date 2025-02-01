@@ -4,13 +4,13 @@ class Tetris {
       this.BOARD_HEIGHT = 20;
       this.CELL_SIZE = 30;
       this.COLORS = [
-          '#00f0f0', // I
-          '#0000f0', // J
-          '#f0a000', // L
-          '#f0f000', // O
-          '#00f000', // S
-          '#a000f0', // T
-          '#f00000'  // Z
+          '#00f0f0', // I - Cyan
+          '#0000f0', // J - Blue
+          '#f0a000', // L - Orange
+          '#f0f000', // O - Yellow
+          '#00f000', // S - Green
+          '#a000f0', // T - Purple
+          '#f00000'  // Z - Red
       ];
       this.SHAPES = [
           [[1, 1, 1, 1]],                         // I
@@ -280,7 +280,7 @@ class Tetris {
           };
 
           try {
-              const response = await fetch('http://localhost:8080/scores', {
+              const response = await fetch('http://localhost:8080/api/scores', {
                   method: 'POST',
                   headers: {
                       'Content-Type': 'application/json'
@@ -299,7 +299,7 @@ class Tetris {
 
   async showScoreboard() {
       try {
-          const response = await fetch('http://localhost:8080/scores');
+          const response = await fetch('http://localhost:8080/api/scores');
           const scores = await response.json();
 
           const tbody = document.querySelector('#scores-table tbody');
