@@ -138,15 +138,15 @@
     "rank": 23
   },
   {
-    "name": "r",
-    "score": 155,
-    "time": "00:05",
-    "rank": 24
-  },
-  {
     "name": "jk",
     "score": 155,
     "time": "00:06",
+    "rank": 24
+  },
+  {
+    "name": "r",
+    "score": 155,
+    "time": "00:05",
     "rank": 25
   },
   {
@@ -162,15 +162,15 @@
     "rank": 27
   },
   {
-    "name": "jj",
-    "score": 100,
-    "time": "00:18",
-    "rank": 28
-  },
-  {
     "name": "hjo",
     "score": 70,
     "time": "00:16",
+    "rank": 28
+  },
+  {
+    "name": "jsjs",
+    "score": 65,
+    "time": "00:09",
     "rank": 29
   },
   {
@@ -192,20 +192,20 @@
     "rank": 32
   },
   {
-    "name": "jsjs",
-    "score": 65,
-    "time": "00:09",
-    "rank": 33
-  },
-  {
     "name": "hj",
     "score": 60,
     "time": "00:16",
-    "rank": 34
+    "rank": 33
   },
   {
     "name": "djkd",
     "score": 60,
+    "time": "00:12",
+    "rank": 34
+  },
+  {
+    "name": "kk",
+    "score": 55,
     "time": "00:12",
     "rank": 35
   },
@@ -222,9 +222,9 @@
     "rank": 37
   },
   {
-    "name": "kk",
-    "score": 55,
-    "time": "00:12",
+    "name": "ks",
+    "score": 50,
+    "time": "00:11",
     "rank": 38
   },
   {
@@ -234,9 +234,9 @@
     "rank": 39
   },
   {
-    "name": "ks",
-    "score": 50,
-    "time": "00:11",
+    "name": "jj",
+    "score": 0,
+    "time": "00:10",
     "rank": 40
   },
   {
@@ -268,5 +268,11 @@
     "score": 0,
     "time": "00:16",
     "rank": 45
+  },
+  {
+    "name": "sds",
+    "score": 0,
+    "time": "00:07",
+    "rank": 46
   }
 ]
