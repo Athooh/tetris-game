@@ -6,6 +6,8 @@ const SCORE_MULTIPLIERS = {
   4: 800    // Tetris
 };
 
+const PIECES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+
 // Handle messages from main thread
 self.onmessage = function(e) {
   const { type, data } = e.data;
@@ -13,17 +15,20 @@ self.onmessage = function(e) {
   switch(type) {
     case 'calculateScore':
       const score = calculateScore(data.lines, data.level);
-      self.postMessage({ type: 'scoreResult', score });
+      self.postMessage({ type: 'scoreResult', data: { score } });
       break;
       
     case 'checkHighScore':
       const isHighScore = checkHighScore(data.score, data.scores);
-      self.postMessage({ type: 'highScoreResult', isHighScore });
+      self.postMessage({ type: 'highScoreResult', data: { isHighScore } });
       break;
       
     case 'generateNextPiece':
       const nextPiece = generateNextPiece();
-      self.postMessage({ type: 'nextPieceResult', nextPiece });
+      self.postMessage({ 
+        type: 'nextPieceResult', 
+        data: { nextPiece } 
+      });
       break;
       
     case 'optimizeGame':
@@ -48,8 +53,7 @@ function checkHighScore(currentScore, highScores) {
 
 // Next piece generation
 function generateNextPiece() {
-  const pieces = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
-  return pieces[Math.floor(Math.random() * pieces.length)];
+  return PIECES[Math.floor(Math.random() * PIECES.length)];
 }
 
 // Add performance monitoring
@@ -76,7 +80,7 @@ function reportPerformance(operation, startTime) {
 self.onerror = function(error) {
   self.postMessage({
     type: 'error',
-    error: {
+    data: {
       message: error.message,
       stack: error.stack
     }

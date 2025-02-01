@@ -45,15 +45,18 @@ body {
 .game-board {
   display: grid;
   grid-template-columns: repeat(10, 2rem);
-  grid-template-rows: repeat(20, 2rem); /* Added explicit row definition */
+  grid-template-rows: repeat(20, 2rem);
   position: relative;
+  contain: layout size;
+  gap: 1px;
   padding: 0.5rem;
   border-radius: 0.5rem;
-  background: #000000;
+  background: rgba(0, 0, 0, 0.8);
   width: fit-content;
   height: fit-content;
-  border: 1px solid #1a1a1a;
-  margin-top: 60px;  /* Added margin to move board down */
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  margin-top: 60px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 .grid-overlay {
@@ -63,20 +66,21 @@ body {
   width: calc(100% - 1rem);
   height: calc(100% - 1rem);
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
+  opacity: 1;
 }
 
 .cell {
+  contain: layout style;
+  transform: translateZ(0);
+  will-change: transform, background-color;
   width: 2rem;
   height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: transparent;
-  border: none;
-  position: relative;
-  z-index: 1;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  will-change: transform;
-  transition: none;
+  transition: background-color 0.1s ease;
 }
 
 .game-stats {
@@ -160,21 +164,17 @@ body {
 }
 
 .tetromino {
-  border: 1px solid rgba(50, 50, 50, 0.8);
-  position: relative;
-  z-index: 2;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+  transform: translateZ(0);
   will-change: transform;
-  transition: none;
+  transition: background-color 0.1s ease;
 }
 
 .tetromino.placed {
-  box-shadow: 0 0 8px var(--glow-color), 
-              inset 0 0 8px var(--glow-color);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
 }
-
-
 
 .next-piece {
   opacity: var(--next-piece-opacity);
@@ -193,23 +193,27 @@ body {
   text-align: center;
 }
 
+.next-piece-container {
+  margin-top: 1rem;
+  text-align: center;
+}
+
 .next-piece-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1.5rem);
-  grid-template-rows: repeat(4, 1.5rem);
-  gap: 1px;
-  background: #1a1a1a;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  width: 8rem;
+  height: 8rem;
+  margin: 0.5rem auto;
+  background: rgba(0, 0, 0, 0.3);
   padding: 0.5rem;
-  border-radius: 0.25rem;
-  margin: 0 auto;
-  width: fit-content;
 }
 
 .next-piece-cell {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 100%;
+  height: 100%;
   background-color: transparent;
-  transition: all 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .next-piece-cell.tetromino {

@@ -13,16 +13,43 @@ const COLORS = {
 
 // Additional Game Constants
 const TETROMINOES = {
-  I: [[1, 1, 1, 1]],
-  O: [[1, 1], [1, 1]],
-  T: [[0, 1, 0], [1, 1, 1]],
-  S: [[0, 1, 1], [1, 1, 0]],
-  Z: [[1, 1, 0], [0, 1, 1]],
-  J: [[1, 0, 0], [1, 1, 1]],
-  L: [[0, 0, 1], [1, 1, 1]]
+  I: [
+    [0, 0, 0, 0],
+    [1, 1, 1, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+  ],
+  O: [
+    [1, 1],
+    [1, 1]
+  ],
+  T: [
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 0, 0]
+  ],
+  S: [
+    [0, 1, 1],
+    [1, 1, 0],
+    [0, 0, 0]
+  ],
+  Z: [
+    [1, 1, 0],
+    [0, 1, 1],
+    [0, 0, 0]
+  ],
+  J: [
+    [1, 0, 0],
+    [1, 1, 1],
+    [0, 0, 0]
+  ],
+  L: [
+    [0, 0, 1],
+    [1, 1, 1],
+    [0, 0, 0]
+  ]
 };
 
-// Game State
 let board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
 let score = 0;
 let level = 1;
@@ -40,9 +67,9 @@ let DROP_INTERVAL = 1000; // Initial drop interval
 let animationId = null;
 let nextTetrominoType = null;
 let nextTetromino = null;
-let currentOffset = 0; // Add this near other game state variables
 
 // Add RAF timing variables
+let frameId = null;
 let lastFrameTime = 0;
 const TARGET_FRAMETIME = 1000 / 60; // 60 FPS
 
@@ -63,17 +90,149 @@ const levelElement = document.getElementById('level');
 const livesElement = document.getElementById('lives');
 const timeElement = document.getElementById('time');
 
+// 5. Cache DOM elements and calculations
+const CACHED = {
+  cells: null,
+  colors: Object.freeze(COLORS),
+  boardSize: BOARD_WIDTH * BOARD_HEIGHT,
+  tetrominoes: Object.freeze(TETROMINOES)
+};
+
+function getCells() {
+  if (!CACHED.cells) {
+    CACHED.cells = Array.from(gameBoard.getElementsByClassName('cell'));
+  }
+  return CACHED.cells;
+}
+
+// Change from const to let for the rotation cache
+let ROTATION_CACHE = {};
+
+// Update initRotationCache function
+function initRotationCache() {
+    
+    ROTATION_CACHE = {};
+    
+    Object.entries(TETROMINOES).forEach(([type, shape]) => {
+        
+        
+        // Store all 4 rotations
+        let rotations = [];
+        let current = JSON.parse(JSON.stringify(shape)); // Deep copy initial shape
+        
+        // Add initial shape
+        rotations.push(current);
+        
+        // Generate the other 3 rotations
+        for (let i = 1; i < 4; i++) {
+            // Create new rotation using the previous state
+            let rotated = current[0].map((_, i) => 
+                current.map(row => row[i]).reverse()
+            );
+            
+            // Deep copy the rotated piece to prevent reference issues
+            current = JSON.parse(JSON.stringify(rotated));
+            rotations.push(current);
+           
+        }
+        
+        ROTATION_CACHE[type] = rotations;
+    });
+    
+  
+}
+
+// Now let's modify rotateTetromino to use the cache
+function rotateTetromino() {
+    if (!currentTetromino) return;
+    
+    // Get next rotation from cache
+    const nextIndex = (currentRotationIndex + 1) % 4;
+    const nextRotation = ROTATION_CACHE[currentTetrominoType][nextIndex];
+    
+    if (!checkCollision(currentPosition.x, currentPosition.y, nextRotation)) {
+        currentTetromino = JSON.parse(JSON.stringify(nextRotation));
+        currentRotationIndex = nextIndex;
+        dirtyPiece = true;
+        updateBoard();
+    }
+}
+
+// Wall kick data for I piece
+const WALL_KICKS_I = [
+  [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],  // 0->1
+  [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],  // 1->2
+  [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],  // 2->3
+  [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]]   // 3->0
+];
+
+// Wall kick data for all other pieces
+const WALL_KICKS_JLSTZ = [
+  [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]], // 0->1
+  [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],     // 1->2
+  [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],    // 2->3
+  [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]]   // 3->0
+];
+
+function getWallKicks(type, fromIndex, toIndex) {
+  const kicks = type === 'I' ? WALL_KICKS_I : WALL_KICKS_JLSTZ;
+  return kicks[fromIndex] || [];
+}
+
+// Keep track of current rotation state
+let currentRotationIndex = 0;
+
 // Add state management functions
 function setGameState(newState) {
     gameState = newState;
 }
 
 function saveGameState(state) {
-    localStorage.setItem('gameState', state);
+    const gameData = {
+        state: state,
+        score: score,
+        level: level,
+        lives: lives,
+        time: timeElement.textContent,
+        board: board,
+        currentTetromino: currentTetromino,
+        currentTetrominoType: currentTetrominoType,
+        currentPosition: currentPosition,
+        nextTetrominoType: nextTetrominoType,
+        nextTetromino: nextTetromino
+    };
+    localStorage.setItem('gameState', JSON.stringify(gameData));
 }
 
 function loadGameState() {
-    return localStorage.getItem('gameState') || 'start';
+    const savedState = localStorage.getItem('gameState');
+    if (!savedState) return 'start';
+    
+    try {
+        const gameData = JSON.parse(savedState);
+        
+        // Restore game variables if they exist
+        if (gameData.score !== undefined) score = gameData.score;
+        if (gameData.level !== undefined) level = gameData.level;
+        if (gameData.lives !== undefined) lives = gameData.lives;
+        if (gameData.board) board = gameData.board;
+        if (gameData.currentTetromino) currentTetromino = gameData.currentTetromino;
+        if (gameData.currentTetrominoType) currentTetrominoType = gameData.currentTetrominoType;
+        if (gameData.currentPosition) currentPosition = gameData.currentPosition;
+        if (gameData.nextTetrominoType) nextTetrominoType = gameData.nextTetrominoType;
+        if (gameData.nextTetromino) nextTetromino = gameData.nextTetromino;
+        
+        // Update UI elements
+        if (gameData.time) timeElement.textContent = gameData.time;
+        scoreElement.textContent = score.toString().padStart(6, '0');
+        levelElement.textContent = level.toString();
+        updateLives();
+        
+        return gameData.state;
+    } catch (error) {
+        console.error('Error loading game state:', error);
+        return 'start';
+    }
 }
 
 function clearGameState() {
@@ -82,40 +241,48 @@ function clearGameState() {
 
 // Initialize Game Board
 function initializeBoard() {
-  gameBoard.innerHTML = `
-    <svg class="grid-overlay" width="100%" height="100%"></svg>
-  `;
-  for (let i = 0; i < BOARD_HEIGHT; i++) {
-    for (let j = 0; j < BOARD_WIDTH; j++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      gameBoard.appendChild(cell);
-    }
-  }
-  createGridLines();
+  const fragment = document.createDocumentFragment();
+  const template = document.createElement('template');
+  
+  template.innerHTML = Array(BOARD_HEIGHT)
+    .fill()
+    .map(() => Array(BOARD_WIDTH)
+      .fill('<div class="cell"></div>')
+      .join('')
+    ).join('');
+    
+  fragment.appendChild(template.content);
+  gameBoard.innerHTML = '';
+  gameBoard.appendChild(fragment);
+  
+  // Cache cells after creation
+  CACHED.cells = Array.from(gameBoard.getElementsByClassName('cell'));
 }
 
 // Update Board Display
 function updateBoard() {
   const cells = gameBoard.getElementsByClassName('cell');
+  
   // Clear the board first
   for (let i = 0; i < BOARD_HEIGHT; i++) {
     for (let j = 0; j < BOARD_WIDTH; j++) {
       const cell = cells[i * BOARD_WIDTH + j];
       const value = board[i][j];
-      cell.style.backgroundColor = value ? COLORS[value] : 'transparent';
+      const color = value ? COLORS[value] : 'transparent';
+      cell.style.backgroundColor = color;
       cell.classList.remove('tetromino', 'placed');
       cell.style.transform = 'none';
       if (value) {
-        cell.style.setProperty('--glow-color', COLORS[value]);
+        cell.style.setProperty('--piece-color', color);
+        cell.style.setProperty('--glow-color-rgb', hexToRgb(color).r + ',' + hexToRgb(color).g + ',' + hexToRgb(color).b);
         cell.classList.add('tetromino', 'placed');
       }
     }
   }
   
-  // Draw current tetromino without glow effect
+  // Draw current tetromino
   if (currentTetromino && currentPosition) {
-    const offsetY = Math.round(currentOffset * 32); // Round the offset for pixel-perfect rendering
+    const offsetY = Math.round(currentPosition.y * 32);
     for (let i = 0; i < currentTetromino.length; i++) {
       for (let j = 0; j < currentTetromino[i].length; j++) {
         if (currentTetromino[i][j]) {
@@ -123,7 +290,8 @@ function updateBoard() {
           const x = currentPosition.x + j;
           if (y >= 0) {
             const cell = cells[y * BOARD_WIDTH + x];
-            cell.style.backgroundColor = COLORS[currentTetrominoType];
+            const color = COLORS[currentTetrominoType];
+            cell.style.backgroundColor = color;
             cell.classList.add('tetromino');
             cell.style.transform = `translateY(${offsetY}px)`;
           }
@@ -131,8 +299,6 @@ function updateBoard() {
       }
     }
   }
-  
-
 }
 
 // Update Lives Display
@@ -158,15 +324,18 @@ function startGame() {
         startTime = new Date();
         overlay.style.display = 'none';
         
-        // Reset game state but keep the selected level
+        // Reset game state
         score = 0;
         lives = 3;
-        linesForCurrentLevel = 0;  // Reset lines counter
+        linesForCurrentLevel = 0;
         document.getElementById('lines-cleared').textContent = '0';
+        
+        // Reinitialize board (now works because board is let, not const)
         board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
         
         // Initialize board and spawn first tetromino
         initializeBoard();
+        createGridLines();
         spawnTetromino();
         
         // Update UI
@@ -174,14 +343,13 @@ function startGame() {
         levelElement.textContent = level.toString();
         updateLives();
         
-        // Set drop interval based on current level
         DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
         updateVisibility();
         
         lastDropTime = performance.now();
         if (gameInterval) clearInterval(gameInterval);
         gameInterval = setInterval(updateTime, 1000);
-        gameLoop(performance.now());
+        requestAnimationFrame(gameLoop);
     }
 }
 
@@ -229,23 +397,23 @@ function quitGame() {
     startTime = null;
     timeElement.textContent = '00:00';
     
-    const startContent = `
-      <div class="overlay-content">
-        <h1 class="game-title">TETRIS</h1>
-        <div class="level-select">
-          <h2>Starting Level</h2>
-          <div class="level-buttons">
-            ${Array.from({length: 10}, (_, i) => i + 1)
-              .map(num => `<button class="level-btn" onclick="setStartLevel(${num})">${num}</button>`)
-              .join('')}
-          </div>
-        </div>
-        <button class="game-button" onclick="startGame()">Start Game</button>
-      </div>
-    `;
+    // Reset all game variables
+    score = 0;
+    level = 1;
+    lives = 3;
+    board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+    currentTetromino = null;
+    currentTetrominoType = null;
+    currentPosition = null;
+    nextTetrominoType = null;
+    nextTetromino = null;
     
-    overlay.innerHTML = startContent;
-    overlay.style.display = 'flex';
+    // Force a complete board redraw
+    dirtyBoard = true;
+    dirtyPiece = true;
+    updateBoardEfficient();
+    
+    showStartOverlay();
 }
 
 // Game Over
@@ -256,94 +424,360 @@ function gameOver() {
   showScoreSubmission();
 }
 
-// Event Listeners
-document.addEventListener('keydown', (e) => {
-  if (gameState !== 'playing') return;
-  
-  switch(e.key) {
-    case 'ArrowLeft':
-      moveTetromino(-1, 0);
-      break;
-    case 'ArrowRight':
-      moveTetromino(1, 0);
-      break;
-    case 'ArrowDown':
-      hardDrop();
-      break;
-    case 'ArrowUp':
-      rotateTetromino();
-      break;
-    case ' ':
-      pauseGame();
-      break;
-    case 'Escape':
-      pauseGame();
-      break;
-  }
-});
-
 // Initialize the game when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    const savedState = loadGameState();
-    setGameState('start');
-    initializeBoard();
-    updateLives();
+    console.log('Initializing game...');
+    initRotationCache();
+    initializeGame(); // Critical init
     
-    switch (savedState) {
-        case 'highscores':
-            showHighScores(null);
-            break;
-        case 'start':
-        default:
-            gameState = 'start';
+    // Defer non-critical init
+    deferredInit().then(() => {
+        const savedState = loadGameState();
+        setGameState(savedState);
+        
+        // Show appropriate overlay based on game state
+        if (gameState === 'start') {
             showStartOverlay();
-            break;
-    }
+        } else if (gameState === 'highscores') {
+            // If we're in highscores state, show the high scores
+            const savedScores = localStorage.getItem('lastScores');
+            if (savedScores) {
+                showHighScores(JSON.parse(savedScores));
+            } else {
+                fetchAndShowHighScores();
+            }
+        }
+    });
 });
 
+// 1. Move initialization code to a separate function
+function initializeGame() {
+  // Initialize only critical game components first
+  initializeBoard();
+  
+  // Create next piece preview area if it doesn't exist
+  if (!document.querySelector('.next-piece-container')) {
+    const nextPieceContainer = document.createElement('div');
+    nextPieceContainer.className = 'next-piece-container';
+    nextPieceContainer.innerHTML = `
+      <h2>Next</h2>
+      <div class="next-piece-grid">
+        ${Array(16).fill('<div class="next-piece-cell"></div>').join('')}
+      </div>
+    `;
+    document.querySelector('.game-stats').appendChild(nextPieceContainer);
+  }
+  
+  setupEventListeners();
+  createGridLines();
+}
+
+// 2. Defer non-critical initializations
+function deferredInit() {
+  return new Promise(resolve => {
+    requestIdleCallback(() => {
+      // Initialize non-critical components
+      if (typeof initializeWorker === 'function') {
+        initializeWorker();
+      }
+      setupHighScores();
+      if (typeof createGridLines === 'function') {
+        createGridLines();
+      }
+      resolve();
+    });
+  });
+}
+
+// 4. Lazy load worker
+let gameWorker = null;
+function initializeWorker() {
+  if (!gameWorker) {
+    gameWorker = new Worker('worker.js');
+    gameWorker.onmessage = handleWorkerMessage;
+    gameWorker.onerror = handleWorkerError;
+  }
+  return gameWorker;
+}
+
+function handleWorkerMessage(e) {
+  const { type, data } = e.data;
+  
+  if (!data) {
+    console.error('Invalid worker message:', e);
+    return;
+  }
+
+  switch(type) {
+    case 'scoreResult':
+      if (data.score !== undefined) {
+        updateScore(data.score);
+      }
+      break;
+    case 'optimizationResult':
+      requestAnimationFrame(() => {
+        if (data.score !== undefined) {
+          score = data.score;
+          scoreElement.textContent = score.toString().padStart(6, '0');
+        }
+        
+        if (data.shouldLevelUp) {
+          level = Math.min(10, level + 1);
+          linesForCurrentLevel = 0;
+          document.getElementById('lines-cleared').textContent = '0';
+          levelElement.textContent = level.toString();
+          DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
+          updateVisibility();
+        }
+      });
+      break;
+    case 'nextPieceResult':
+      if (data.nextPiece) {
+        nextTetrominoType = data.nextPiece;
+        nextTetromino = JSON.parse(JSON.stringify(TETROMINOES[data.nextPiece])); // Deep copy
+        requestAnimationFrame(() => {
+          updateNextTetrominoDisplay();
+        });
+      }
+      break;
+    case 'error':
+      console.error('Worker error:', data.message);
+      break;
+  }
+}
+
+function handleWorkerError(error) {
+  console.error('Worker error:', error);
+  gameWorker = null;
+  // Attempt to reconnect after error
+  setTimeout(() => {
+    gameWorker = initializeWorker();
+  }, 1000);
+}
+
+// Update clearLines to use worker and update lines count
+function clearLines() {
+    let linesCleared = 0;
+    const linesToClear = [];
+    
+    // First pass: identify lines to clear
+    for (let row = BOARD_HEIGHT - 1; row >= 0; row--) {
+        if (board[row].every(cell => cell !== 0)) {
+            linesToClear.push(row);
+            linesCleared++;
+        }
+    }
+
+    if (linesCleared > 0) {
+        // Update lines count immediately for visual feedback
+        linesForCurrentLevel += linesCleared;
+        document.getElementById('lines-cleared').textContent = linesForCurrentLevel.toString();
+        
+        // Offload calculations to worker
+        if (gameWorker) {
+            gameWorker.postMessage({
+                type: 'optimizeGame',
+                data: {
+                    lines: linesCleared,
+                    linesForLevel: linesForCurrentLevel,
+                    level,
+                    board: board,
+                    score: score
+                }
+            });
+        }
+
+        // Handle visual updates
+        requestAnimationFrame(() => {
+            // Remove lines and update board
+            for (let i = linesToClear.length - 1; i >= 0; i--) {
+                const row = linesToClear[i];
+                board.splice(row, 1);
+                board.unshift(Array(BOARD_WIDTH).fill(0));
+            }
+            
+            boardChanged = true;
+            updateBoardEfficient();
+        });
+
+        return true;
+    }
+    return false;
+}
+
+// Update spawnTetromino to ensure proper piece initialization
 function spawnTetromino() {
   if (!nextTetrominoType) {
-    nextTetrominoType = Object.keys(TETROMINOES)[Math.floor(Math.random() * Object.keys(TETROMINOES).length)];
-    nextTetromino = TETROMINOES[nextTetrominoType];
+    if (gameWorker) {
+      gameWorker.postMessage({ type: 'generateNextPiece' });
+      // Set a default piece while waiting for worker response
+      nextTetrominoType = 'I';
+      nextTetromino = TETROMINOES['I'];
+    } else {
+      nextTetrominoType = Object.keys(TETROMINOES)[Math.floor(Math.random() * Object.keys(TETROMINOES).length)];
+      nextTetromino = TETROMINOES[nextTetrominoType];
+    }
   }
 
   currentTetrominoType = nextTetrominoType;
-  currentTetromino = nextTetromino;
+  currentTetromino = JSON.parse(JSON.stringify(TETROMINOES[currentTetrominoType])); // Deep copy to prevent reference issues
 
-  nextTetrominoType = Object.keys(TETROMINOES)[Math.floor(Math.random() * Object.keys(TETROMINOES).length)];
-  nextTetromino = TETROMINOES[nextTetrominoType];
+  // Request next piece immediately
+  if (gameWorker) {
+    gameWorker.postMessage({ type: 'generateNextPiece' });
+  }
 
-  currentPosition = { 
-    x: Math.floor(BOARD_WIDTH / 2) - 1, 
-    y: 0 
+  // Set initial position
+  currentPosition = {
+    x: Math.floor(BOARD_WIDTH / 2) - Math.floor(currentTetromino[0].length / 2),
+    y: 0
   };
 
-  updateNextTetrominoDisplay();
+  currentRotationIndex = 0; // Reset rotation index for new piece
 
+  // Check for game over condition immediately after spawning
   if (checkCollision(currentPosition.x, currentPosition.y, currentTetromino)) {
     lives--;
     updateLives();
 
     if (lives <= 0) {
       gameOver();
+      return false;
     } else {
       showLivesOverlay();
+      return false;
     }
-    return false;
   }
+
+  // Use requestAnimationFrame for visual updates
+  requestAnimationFrame(() => {
+    updateBoard(); // Update main board immediately
+    updateNextTetrominoDisplay();
+  });
+  
   return true;
 }
 
-function checkCollision(x, y, tetromino, offset = 0) {
-  // Convert offset to actual position change and ensure it's not fractional
-  const effectiveY = Math.floor(y + offset);
+// 1. Optimize board updates by using a dirty flag system
+let dirtyBoard = false;
+let dirtyPiece = false;
+
+// 2. Optimize the game loop
+function gameLoop(timestamp) {
+  if (gameState !== 'playing') return;
   
-  // Check if the effective position would cause any overlap
+  const delta = timestamp - lastFrameTime;
+  
+  // Skip frame if too soon
+  if (delta < 16.66) { // 60 FPS target
+    frameId = requestAnimationFrame(gameLoop);
+    return;
+  }
+  
+  // Process game logic
+  if (timestamp - lastDropTime >= DROP_INTERVAL) {
+    moveTetromino(0, 1);
+    lastDropTime = timestamp;
+  }
+  
+  // Only update visuals if needed
+  if (dirtyBoard || dirtyPiece) {
+    updateBoardEfficient();
+  }
+  
+  lastFrameTime = timestamp;
+  frameId = requestAnimationFrame(gameLoop);
+}
+
+// Clean up when game ends
+function cleanupGame() {
+  if (frameId) {
+    cancelAnimationFrame(frameId);
+    frameId = null;
+  }
+}
+
+// 3. Update moveTetromino to use dirty flags
+function moveTetromino(dx, dy) {
+  const newX = currentPosition.x + dx;
+  const newY = currentPosition.y + dy;
+  
+  if (!checkCollision(newX, newY, currentTetromino)) {
+    currentPosition.x = newX;
+    currentPosition.y = newY;
+    if (dy > 0) {
+      lastDropTime = performance.now();
+    }
+    dirtyPiece = true;
+  } else if (dy === 1) {
+    placeTetromino();
+    dirtyBoard = true;
+    
+    if (clearLines()) {
+      setTimeout(() => {
+        spawnTetromino();
+      }, 300);
+    } else {
+      spawnTetromino();
+    }
+  }
+}
+
+// 4. Update placeTetromino
+function placeTetromino() {
+  for (let row = 0; row < currentTetromino.length; row++) {
+    for (let col = 0; col < currentTetromino[row].length; col++) {
+      if (currentTetromino[row][col]) {
+        const boardY = currentPosition.y + row;
+        const boardX = currentPosition.x + col;
+        
+        // Check if piece is placed at or above the top of the board
+        if (boardY <= 0) {
+          lives--;
+          updateLives();
+          
+          if (lives <= 0) {
+            gameOver();
+          } else {
+            showLivesOverlay();
+          }
+          return;
+        }
+        
+        board[boardY][boardX] = currentTetrominoType;
+      }
+    }
+  }
+  dirtyBoard = true;
+}
+
+// Handle optimization results from worker
+function handleOptimizationResult(data) {
+  if (data.skip) return;
+
+  // Update score
+  if (data.score) {
+    score += data.score;
+    scoreElement.textContent = score.toString().padStart(6, '0');
+  }
+
+  // Update level if needed
+  if (data.shouldLevelUp) {
+    level = Math.min(10, level + 1);
+    linesForCurrentLevel = 0;
+    document.getElementById('lines-cleared').textContent = '0';
+    levelElement.textContent = level.toString();
+    DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
+    updateVisibility();
+  }
+}
+
+function checkCollision(x, y, tetromino) {
   for (let row = 0; row < tetromino.length; row++) {
     for (let col = 0; col < tetromino[row].length; col++) {
       if (tetromino[row][col]) {
         const newX = x + col;
-        const newY = effectiveY + row;
+        const newY = y + row;
         
         // Check boundaries
         if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) {
@@ -351,157 +785,17 @@ function checkCollision(x, y, tetromino, offset = 0) {
         }
         
         // Check collision with placed pieces
-        // Include an additional check for the cell above if there's an offset
-        if (newY >= 0) {
-          if (board[newY][newX]) {
-            return true;
-          }
-          // If we have an offset, also check the cell above to prevent overlap during animation
-          if (offset > 0 && newY > 0 && board[newY - 1][newX]) {
-            return true;
-          }
+        if (newY >= 0 && board[newY][newX]) {
+          return true;
         }
       }
     }
   }
   return false;
-}
-
-function moveTetromino(dx, dy) {
-  const newX = currentPosition.x + dx;
-  const newY = currentPosition.y + dy;
-  
-  // Calculate potential new offset for downward movement
-  const potentialOffset = dy === 1 ? currentOffset : 0;
-  
-  if (!checkCollision(newX, newY, currentTetromino, potentialOffset)) {
-    currentPosition.x = newX;
-    currentPosition.y = newY;
-    if (dy > 0) {
-      currentOffset = 0;
-      lastDropTime = performance.now();
-    }
-    updateBoard();
-  } else if (dy === 1) {
-    currentOffset = 0;
-    placeTetromino();
-    
-    requestAnimationFrame(() => {
-      if (clearLines()) {
-        setTimeout(() => {
-          spawnTetromino();
-        }, 300);
-      } else {
-        spawnTetromino();
-      }
-    });
-  }
-}
-
-function rotateTetromino() {
-  const rotated = currentTetromino[0].map((_, i) =>
-    currentTetromino.map(row => row[i]).reverse()
-  );
-  if (!checkCollision(currentPosition.x, currentPosition.y, rotated)) {
-    currentTetromino = rotated;
-    updateBoard();
-  }
 }
 
 // Add board change tracking
 let boardChanged = false;
-
-// Update placeTetromino to track changes
-function placeTetromino() {
-  boardChanged = true;
-  for (let row = 0; row < currentTetromino.length; row++) {
-    for (let col = 0; col < currentTetromino[row].length; col++) {
-      if (currentTetromino[row][col]) {
-        const boardY = currentPosition.y + row;
-        const boardX = currentPosition.x + col;
-        board[boardY][boardX] = currentTetrominoType;
-      }
-    }
-  }
-}
-
-function clearLines() {
-  let linesCleared = 0;
-  const linesToClear = [];
-  
-  // First pass: identify lines to clear
-  for (let row = BOARD_HEIGHT - 1; row >= 0; row--) {
-    if (board[row].every(cell => cell !== 0)) {
-      linesToClear.push(row);
-      linesCleared++;
-    }
-  }
-
-  if (linesCleared > 0) {
-    const cells = gameBoard.getElementsByClassName('cell');
-
-   
-      // Remove the lines from the board array
-      for (let i = linesToClear.length - 1; i >= 0; i--) {
-        const row = linesToClear[i];
-        board.splice(row, 1);
-        board.unshift(Array(BOARD_WIDTH).fill(0));
-      }
-
-      // Update score
-      score += linesCleared * 100;
-      scoreElement.textContent = score.toString().padStart(6, '0');
-      
-      // Update level and lines count
-      linesForCurrentLevel += linesCleared;
-      document.getElementById('lines-cleared').textContent = linesForCurrentLevel;
-      
-      // Check for level up only after updating lines
-      if (linesForCurrentLevel >= 10) {
-        if (level < 10) {
-          level++;
-          linesForCurrentLevel = 0;
-          document.getElementById('lines-cleared').textContent = '0';
-          levelElement.textContent = level.toString();
-          DROP_INTERVAL = Math.max(100, 1000 - (level - 1) * 100);
-          updateVisibility();
-        } else if (level === 10) {
-          handleLevelTenCompletion();
-        }
-      }
-      
-      // Force a complete board redraw
-      boardChanged = true;
-      updateBoardEfficient();
-     // Match this with your CSS animation duration
-
-    return true;
-  }
-  return false;
-}
-// Add new function to handle level 10 completion
-function handleLevelTenCompletion() {
-  gameState = 'completed';
-  clearInterval(gameInterval);
-  
-  const completionContent = `
-    <div class="overlay-content">
-      <h2 style="font-size: 2rem; color: var(--primary);">Congratulations! 🎉</h2>
-      <p style="margin: 1rem 0;">You've mastered level 10!</p>
-      <p style="font-size: 3rem; color: var(--primary); font-family: monospace; margin-bottom: 1.5rem;">
-        ${score.toString().padStart(6, '0')}
-      </p>
-      <button class="game-button" onclick="startGame()">Play Again</button>
-      <button class="game-button" onclick="quitGame()" style="margin-top: 1rem; background: var(--secondary);">
-        Quit
-      </button>
-    </div>
-  `;
-  
-  overlay.innerHTML = completionContent;
-  overlay.style.display = 'flex';
-  showScoreSubmission();
-}
 
 // Add new function to handle visibility changes
 function updateVisibility() {
@@ -512,158 +806,153 @@ function updateVisibility() {
   document.documentElement.style.setProperty('--next-piece-opacity', nextOpacity.toString());
 }
 
-// Add this function to display FPS
-function updateFPS(timestamp) {
-  fpsCounter++;
-  
-  if (timestamp - lastFpsUpdate >= 1000) {
-    currentFps = fpsCounter;
-    console.log(`FPS: ${currentFps}, Level: ${level}`);
-    // You can also add this to the UI if you want
-    fpsCounter = 0;
-    lastFpsUpdate = timestamp;
-  }
-}
 
-// Update gameLoop to be more strict with collision checks
-function gameLoop(timestamp) {
-  if (gameState !== 'playing') return;
 
-  updateFPS(timestamp);
-
-  const deltaTime = timestamp - lastFrameTime;
-  if (deltaTime < TARGET_FRAMETIME) {
-    requestAnimationFrame(gameLoop);
-    return;
-  }
-
-  // Update game logic
-  const dropDelta = timestamp - lastDropTime;
-  if (dropDelta >= DROP_INTERVAL) {
-    moveTetromino(0, 1);
-    lastDropTime = timestamp;
-  } else {
-    // Calculate new offset and check for collision before applying
-    const newOffset = dropDelta / DROP_INTERVAL;
-    // Add a small buffer to prevent any possibility of overlap
-    if (!checkCollision(currentPosition.x, currentPosition.y, currentTetromino, newOffset + 0.01)) {
-      currentOffset = newOffset;
-    } else {
-      // If collision would occur, force piece to place
-      currentOffset = 0;
-      moveTetromino(0, 1);
-    }
-  }
-
-  updateBoardEfficient();
-  lastFrameTime = timestamp;
-  requestAnimationFrame(gameLoop);
-}
-// Optimized board update function
+// 1. Batch DOM updates using requestAnimationFrame
 function updateBoardEfficient() {
-  const cells = gameBoard.getElementsByClassName('cell');
+  const cells = Array.from(gameBoard.getElementsByClassName('cell'));
   
-  // Use requestAnimationFrame for board updates
   requestAnimationFrame(() => {
-    // Only update placed pieces if board changed
-    if (boardChanged) {
-      const fragment = document.createDocumentFragment();
-      
+    if (dirtyBoard) {
       for (let i = 0; i < BOARD_HEIGHT; i++) {
         for (let j = 0; j < BOARD_WIDTH; j++) {
           const cell = cells[i * BOARD_WIDTH + j];
           const value = board[i][j];
           
           if (value) {
-            cell.style.transform = 'translate3d(0,0,0)';
             cell.style.backgroundColor = COLORS[value];
-            if (!cell.classList.contains('tetromino')) {
+            if (!cell.classList.contains('placed')) {
               cell.classList.add('tetromino', 'placed');
             }
-            cell.style.setProperty('--glow-color', COLORS[value]);
-          } else if (cell.classList.contains('placed')) {
+          } else {
             cell.style.backgroundColor = 'transparent';
             cell.classList.remove('tetromino', 'placed');
-            cell.style.transform = 'none';
           }
         }
       }
-      
-      boardChanged = false;
+      dirtyBoard = false;
     }
     
-    // Update current piece with optimized rendering
-    if (currentTetromino && currentPosition) {
-      const offsetY = Math.round(currentOffset * 32);
-      const currentPieceCells = new Set();
+    if (dirtyPiece && currentTetromino && currentPosition) {
+      // Clear previous piece positions
+      cells.forEach(cell => {
+        if (cell.classList.contains('tetromino') && !cell.classList.contains('placed')) {
+          cell.style.backgroundColor = 'transparent';
+          cell.classList.remove('tetromino');
+        }
+      });
       
+      // Draw current piece
       for (let i = 0; i < currentTetromino.length; i++) {
         for (let j = 0; j < currentTetromino[i].length; j++) {
           if (currentTetromino[i][j]) {
             const y = currentPosition.y + i;
             const x = currentPosition.x + j;
-            if (y >= 0) {
-              const index = y * BOARD_WIDTH + x;
-              currentPieceCells.add(index);
-              const cell = cells[index];
-              cell.style.transform = `translate3d(0,${offsetY}px,0)`;
+            if (y >= 0 && y < BOARD_HEIGHT && x >= 0 && x < BOARD_WIDTH) {
+              const cell = cells[y * BOARD_WIDTH + x];
               cell.style.backgroundColor = COLORS[currentTetrominoType];
-              if (!cell.classList.contains('tetromino')) {
-                cell.classList.add('tetromino', 'current-piece');
-              }
+              cell.classList.add('tetromino');
             }
           }
         }
       }
-      
-      // Clear only cells that are no longer part of the current piece
-      document.querySelectorAll('.current-piece').forEach(cell => {
-        const index = Array.from(cells).indexOf(cell);
-        if (!currentPieceCells.has(index)) {
-          cell.classList.remove('current-piece', 'tetromino');
-          cell.style.backgroundColor = 'transparent';
-          cell.style.transform = 'none';
-        }
-      });
+      dirtyPiece = false;
     }
   });
 }
 
+// 2. Use CSS classes instead of inline styles
+const PIECE_STYLES = Object.entries(COLORS).reduce((styles, [piece, color]) => {
+  const style = document.createElement('style');
+  style.textContent = `
+    .tetromino-${piece} {
+      background-color: ${color};
+    }
+  `;
+  document.head.appendChild(style);
+  return { ...styles, [piece]: `tetromino-${piece}` };
+}, {});
+
 function createGridLines() {
-  const svg = document.querySelector('.grid-overlay');
-  const cellSize = 32;
-  const width = BOARD_WIDTH * cellSize;
-  const height = BOARD_HEIGHT * cellSize;
-  
-  // Create SVG content in memory
-  const svgContent = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  
-  // Create lines using a single path element
-  const pathData = [];
-  
-  // Vertical lines
-  for (let i = 0; i <= BOARD_WIDTH; i++) {
-    const x = i * cellSize;
-    pathData.push(`M ${x} 0 L ${x} ${height}`);
-  }
-  
-  // Horizontal lines
-  for (let i = 0; i <= BOARD_HEIGHT; i++) {
-    const y = i * cellSize;
-    pathData.push(`M 0 ${y} L ${width} ${y}`);
-  }
-  
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', pathData.join(' '));
-  path.setAttribute('stroke', '#1a1a1a');
-  path.setAttribute('stroke-width', '1');
-  path.setAttribute('vector-effect', 'non-scaling-stroke');
-  
-  svgContent.appendChild(path);
-  
-  // Clear and update SVG
-  svg.innerHTML = '';
-  svg.appendChild(svgContent);
+    let svg = gameBoard.querySelector('.grid-overlay');
+    if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.classList.add('grid-overlay');
+        svg.style.position = 'absolute';
+        svg.style.top = '0';
+        svg.style.left = '0';
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.pointerEvents = 'none';
+        svg.style.zIndex = '10';
+        gameBoard.appendChild(svg);
+    }
+    
+    svg.innerHTML = '';
+    
+    // Get all cells and their positions
+    const cells = Array.from(document.querySelectorAll('.cell'));
+    if (cells.length === 0) return;
+    
+    // Get the position of the first cell in each row/column
+    const cellPositions = [];
+    for (let i = 0; i < BOARD_HEIGHT; i++) {
+        const rowCells = [];
+        for (let j = 0; j < BOARD_WIDTH; j++) {
+            const cell = cells[i * BOARD_WIDTH + j];
+            const rect = cell.getBoundingClientRect();
+            const boardRect = gameBoard.getBoundingClientRect();
+            rowCells.push({
+                x: rect.left - boardRect.left,
+                y: rect.top - boardRect.top,
+                width: rect.width,
+                height: rect.height
+            });
+        }
+        cellPositions.push(rowCells);
+    }
+    
+    // Create vertical lines at the start of each column (excluding edges)
+    for (let j = 1; j < BOARD_WIDTH; j++) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const x = cellPositions[0][j].x;
+        
+        line.setAttribute('x1', x);
+        line.setAttribute('y1', 0);
+        line.setAttribute('x2', x);
+        line.setAttribute('y2', '100%');
+        line.setAttribute('stroke', 'rgba(255, 255, 255, 0.2)'); // Reduced opacity
+        line.setAttribute('stroke-width', '1');
+        line.setAttribute('shape-rendering', 'crispEdges');
+        svg.appendChild(line);
+    }
+    
+    // Create horizontal lines at the start of each row (excluding edges)
+    for (let i = 1; i < BOARD_HEIGHT; i++) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const y = cellPositions[i][0].y;
+        
+        line.setAttribute('x1', 0);
+        line.setAttribute('y1', y);
+        line.setAttribute('x2', '100%');
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', 'rgba(255, 255, 255, 0.2)'); // Reduced opacity
+        line.setAttribute('stroke-width', '1');
+        line.setAttribute('shape-rendering', 'crispEdges');
+        svg.appendChild(line);
+    }
+    
+    // Add single border
+    const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    border.setAttribute('x', 0);
+    border.setAttribute('y', 0);
+    border.setAttribute('width', '100%');
+    border.setAttribute('height', '100%');
+    border.setAttribute('fill', 'none');
+    border.setAttribute('stroke', 'rgba(255, 255, 255, 0.7)');
+    border.setAttribute('stroke-width', '1');
+    border.setAttribute('shape-rendering', 'crispEdges');
+    svg.appendChild(border);
 }
 
 // Add CSS will-change hints
@@ -702,69 +991,41 @@ document.head.insertAdjacentHTML('beforeend', `
   </style>
 `);
 
+// Update updateNextTetrominoDisplay for better debugging
 function updateNextTetrominoDisplay() {
-  const nextPieceGrid = document.querySelector('.next-piece-grid');
-  if (!nextPieceGrid) {
-    // Create the next piece section if it doesn't exist
-    const gameStats = document.querySelector('.game-stats');
-    const nextPieceSection = document.createElement('div');
-    nextPieceSection.className = 'next-piece';
-    nextPieceSection.innerHTML = `
-      <h2>Next</h2>
-      <div class="next-piece-grid">
-        ${Array(16).fill('<div class="next-piece-cell"></div>').join('')}
-      </div>
-    `;
-    gameStats.appendChild(nextPieceSection);
-  }
+    const nextPieceGrid = document.querySelector('.next-piece-grid');
+    if (!nextPieceGrid) return;
 
-  // Clear all cells
-  const cells = document.querySelectorAll('.next-piece-cell');
-  cells.forEach(cell => {
-    cell.style.backgroundColor = 'transparent';
-    cell.classList.remove('tetromino');
-  });
+    const cells = nextPieceGrid.querySelectorAll('.next-piece-cell');
+    cells.forEach(cell => {
+        cell.style.backgroundColor = 'transparent';
+        cell.classList.remove('tetromino');
+    });
 
-  if (!nextTetromino) return;
+    if (!nextTetromino || !nextTetrominoType) return;
 
-  // Calculate centering offsets
-  const offsetX = Math.floor((4 - nextTetromino[0].length) / 2);
-  const offsetY = Math.floor((4 - nextTetromino.length) / 2);
+    const gridSize = 4;
+    const offsetX = Math.floor((gridSize - nextTetromino[0].length) / 2);
+    const offsetY = Math.floor((gridSize - nextTetromino.length) / 2);
 
-  // Draw the next tetromino with opacity based on level
-  for (let i = 0; i < nextTetromino.length; i++) {
-    for (let j = 0; j < nextTetromino[i].length; j++) {
-      if (nextTetromino[i][j]) {
-        const index = (i + offsetY) * 4 + (j + offsetX);
-        const cell = cells[index];
-        if (cell) {
-          const color = COLORS[nextTetrominoType];
-          // Convert hex to rgb for opacity support
-          const rgb = hexToRgb(color);
-          cell.style.setProperty('--glow-color-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
-          cell.classList.add('tetromino');
+    for (let i = 0; i < nextTetromino.length; i++) {
+        for (let j = 0; j < nextTetromino[i].length; j++) {
+            if (nextTetromino[i][j]) {
+                const index = (i + offsetY) * gridSize + (j + offsetX);
+                const cell = cells[index];
+                if (cell) {
+                    cell.style.backgroundColor = COLORS[nextTetrominoType];
+                    cell.classList.add('tetromino');
+                }
+            }
         }
-      }
     }
-  }
 }
-
-// Helper function to convert hex to rgb
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null;
-}
-
 
 function hardDrop() {
   while (!checkCollision(currentPosition.x, currentPosition.y + 1, currentTetromino)) {
     currentPosition.y++;
   }
-  currentOffset = 0;
   placeTetromino();
   
   // Wait for the piece to be placed before checking lines
@@ -815,8 +1076,7 @@ function showScoreSubmission() {
     overlay.appendChild(content);
     document.body.appendChild(overlay);
     
-    // Add event listener after DOM elements are created
-    console.log('showScoreSubmission: Adding event listener');
+
     const submitBtn = document.getElementById('submitScoreBtn');
     submitBtn.addEventListener('click', (e) => {
         console.log('Submit button clicked');
@@ -828,7 +1088,7 @@ function showScoreSubmission() {
     // Prevent form submission if user presses enter
     const nameInput = document.getElementById('playerName');
     nameInput.addEventListener('keypress', (e) => {
-        console.log('Key pressed in input:', e.key);
+       
         if (e.key === 'Enter') {
             console.log('Enter key pressed - preventing default');
             e.preventDefault();
@@ -837,7 +1097,7 @@ function showScoreSubmission() {
         }
     });
     
-    console.log('showScoreSubmission: Setup complete');
+ 
 }
 
 function handleScoreSubmit(event) {
@@ -916,6 +1176,9 @@ async function submitScore(name, score, time) {
 
 // Add new function to fetch and display high scores from the main menu
 async function fetchAndShowHighScores() {
+    gameState = 'highscores';
+    saveGameState('highscores');
+    
     try {
         // Show loading state
         showHighScores(null);
@@ -933,7 +1196,7 @@ async function fetchAndShowHighScores() {
     }
 }
 
-// Update showHighScores to handle the high scores display from main menu
+// Update showHighScores to maintain visibility
 function showHighScores(scores) {
     if (scores && scores !== 'error') {
         localStorage.setItem('lastScores', JSON.stringify(scores));
@@ -943,6 +1206,8 @@ function showHighScores(scores) {
         scores = JSON.parse(localStorage.getItem('lastScores'));
     }
     
+    // Save the current game state as 'highscores'
+    gameState = 'highscores';
     saveGameState('highscores');
     
     // Loading state
@@ -953,7 +1218,7 @@ function showHighScores(scores) {
                 <div class="loading-container">
                     <div class="loading-spinner"></div>
                     <p>Loading scores...</p>
-                    <button class="game-button" onclick="quitGame()">Cancel</button>
+                    <button class="game-button" onclick="quitGame()">Back to Menu</button>
                 </div>
             </div>
         `;
@@ -969,7 +1234,7 @@ function showHighScores(scores) {
                 <p>Failed to load high scores. Please try again.</p>
                 <div class="button-container">
                     <button class="game-button" onclick="fetchAndShowHighScores()">Retry</button>
-                    <button class="game-button" onclick="quitGame()">Main Menu</button>
+                    <button class="game-button" onclick="quitGame()">Back to Menu</button>
                 </div>
             </div>
         `;
@@ -1076,77 +1341,6 @@ function showStartOverlay() {
     }
 }
 
-// Initialize worker
-let gameWorker;
-try {
-  gameWorker = new Worker('worker.js');
-  
-  gameWorker.onmessage = function(e) {
-    const { type, data } = e.data;
-    switch(type) {
-      case 'scoreResult':
-        updateScore(data.score);
-        break;
-      case 'highScoreResult':
-        handleHighScore(data.isHighScore);
-        break;
-      case 'nextPieceResult':
-        handleNextPiece(data.nextPiece);
-        break;
-      case 'performanceReport':
-        console.debug('Worker Performance:', data);
-        break;
-      case 'error':
-        console.error('Worker Error:', data.error);
-        break;
-    }
-  };
-  
-  gameWorker.onerror = function(error) {
-    console.error('Worker Error:', error);
-    // Fallback to main thread processing if worker fails
-    gameWorker = null;
-  };
-  
-} catch (error) {
-  console.error('Worker initialization failed:', error);
-  gameWorker = null;
-}
-
-// Example usage in your game functions
-function calculateScore(lines) {
-  if (gameWorker) {
-    gameWorker.postMessage({
-      type: 'calculateScore',
-      data: { lines, level }
-    });
-  } else {
-    // Fallback to main thread processing
-    const score = lines * 100 * level;
-    updateScore(score);
-  }
-}
-
-function generateNextPiece() {
-  if (gameWorker) {
-    gameWorker.postMessage({
-      type: 'generateNextPiece'
-    });
-  } else {
-    // Fallback to main thread processing
-    const piece = generateNextPieceSync();
-    handleNextPiece(piece);
-  }
-}
-
-function updateNonCriticalUI() {
-  requestIdleCallback(() => {
-    updateNextTetrominoDisplay();
-    updateTime();
-    updateLives();
-  }, { timeout: 100 });
-}
-
 function showLivesOverlay() {
   gameState = 'paused';
   clearInterval(gameInterval);
@@ -1173,17 +1367,97 @@ function continuePlaying() {
   // Clear the entire board
   board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
   
-  // Reset piece position and update board
+  // Reset piece position and spawn new piece
   currentPosition = { 
     x: Math.floor(BOARD_WIDTH / 2) - 1, 
     y: 0 
   };
   
-  boardChanged = true;
+  // Force a complete board redraw
+  dirtyBoard = true;
+  dirtyPiece = true;
   updateBoardEfficient();
+  
+  // Spawn a new piece
+  spawnTetromino();
+  
+  // Save current game state
+  saveGameState('playing');
   
   // Restart game interval and loop
   gameInterval = setInterval(updateTime, 1000);
   lastDropTime = performance.now();
   requestAnimationFrame(gameLoop);
+}
+
+// 4. Use a virtual board for calculations
+const virtualBoard = {
+  cells: new Array(BOARD_HEIGHT * BOARD_WIDTH),
+  update(x, y, value) {
+    const index = y * BOARD_WIDTH + x;
+    if (this.cells[index] !== value) {
+      this.cells[index] = value;
+      return true;
+    }
+    return false;
+  }
+};
+
+// 8. Use constants for piece types
+const PIECE_TYPES = Object.freeze({
+  I: 1,
+  O: 2,
+  T: 3,
+  S: 4,
+  Z: 5,
+  J: 6,
+  L: 7
+});
+
+// 9. Pre-calculate collision checks
+const COLLISION_MAPS = {};
+Object.entries(TETROMINOES).forEach(([type, shape]) => {
+  COLLISION_MAPS[type] = shape.flatMap((row, y) => 
+    row.map((cell, x) => cell ? {x, y} : null)
+  ).filter(Boolean);
+});
+
+// 10. Use event delegation and throttle/debounce
+function setupEventListeners() {
+  const keyHandlers = {
+    ArrowLeft: () => moveTetromino(-1, 0),
+    ArrowRight: () => moveTetromino(1, 0),
+    ArrowDown: () => hardDrop(),
+    ArrowUp: () => rotateTetromino(),
+    ' ': () => pauseGame(),
+    Escape: () => pauseGame()
+  };
+
+  const throttledKeyHandler = throttle((e) => {
+    if (gameState !== 'playing') return;
+    const handler = keyHandlers[e.key];
+    if (handler) handler();
+  }, 16); // ~60fps
+
+  document.addEventListener('keydown', throttledKeyHandler);
+}
+
+// 11. Throttle helper
+function throttle(fn, delay) {
+  let lastCall = 0;
+  return function (...args) {
+    const now = performance.now();
+    if (now - lastCall >= delay) {
+      fn.apply(this, args);
+      lastCall = now;
+    }
+  };
+}
+
+// Add the missing setupHighScores function
+function setupHighScores() {
+    // Initialize high scores if needed
+    if (!localStorage.getItem('highScores')) {
+        localStorage.setItem('highScores', JSON.stringify([]));
+    }
 }
