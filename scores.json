@@ -138,15 +138,15 @@
     "rank": 23
   },
   {
-    "name": "jk",
-    "score": 155,
-    "time": "00:06",
-    "rank": 24
-  },
-  {
     "name": "r",
     "score": 155,
     "time": "00:05",
+    "rank": 24
+  },
+  {
+    "name": "jk",
+    "score": 155,
+    "time": "00:06",
     "rank": 25
   },
   {
@@ -162,39 +162,39 @@
     "rank": 27
   },
   {
-    "name": "ray",
-    "score": 140,
-    "time": "01:51",
-    "rank": 28
-  },
-  {
     "name": "hjo",
     "score": 70,
     "time": "00:16",
-    "rank": 29
+    "rank": 28
   },
   {
     "name": "jsjs",
     "score": 65,
     "time": "00:09",
-    "rank": 30
+    "rank": 29
   },
   {
     "name": "jk",
     "score": 65,
     "time": "00:11",
-    "rank": 31
+    "rank": 30
   },
   {
     "name": "jk",
     "score": 65,
     "time": "00:14",
-    "rank": 32
+    "rank": 31
   },
   {
     "name": "kdkd",
     "score": 65,
     "time": "00:09",
+    "rank": 32
+  },
+  {
+    "name": "hj",
+    "score": 60,
+    "time": "00:16",
     "rank": 33
   },
   {
@@ -204,39 +204,39 @@
     "rank": 34
   },
   {
-    "name": "hj",
-    "score": 60,
-    "time": "00:16",
-    "rank": 35
-  },
-  {
     "name": "kk",
     "score": 55,
     "time": "00:12",
-    "rank": 36
+    "rank": 35
   },
   {
     "name": "k",
     "score": 55,
     "time": "04:35",
-    "rank": 37
+    "rank": 36
   },
   {
     "name": "k",
     "score": 55,
     "time": "00:09",
-    "rank": 38
+    "rank": 37
   },
   {
     "name": "ks",
     "score": 50,
     "time": "00:11",
-    "rank": 39
+    "rank": 38
   },
   {
     "name": "hj",
     "score": 50,
     "time": "00:08",
+    "rank": 39
+  },
+  {
+    "name": "ray",
+    "score": 0,
+    "time": "01:06",
     "rank": 40
   },
   {
@@ -274,5 +274,47 @@
     "score": 0,
     "time": "00:07",
     "rank": 46
+  },
+  {
+    "name": "dwd",
+    "score": 0,
+    "time": "00:07",
+    "rank": 47
+  },
+  {
+    "name": "dd",
+    "score": 0,
+    "time": "00:00",
+    "rank": 48
+  },
+  {
+    "name": "rqy",
+    "score": 0,
+    "time": "00:04",
+    "rank": 49
+  },
+  {
+    "name": "loss",
+    "score": 0,
+    "time": "00:12",
+    "rank": 50
+  },
+  {
+    "name": "you",
+    "score": 0,
+    "time": "00:03",
+    "rank": 51
+  },
+  {
+    "name": "tau",
+    "score": 0,
+    "time": "00:13",
+    "rank": 52
+  },
+  {
+    "name": "rw",
+    "score": 0,
+    "time": "00:10",
+    "rank": 53
   }
 ]

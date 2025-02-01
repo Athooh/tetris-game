@@ -41,10 +41,29 @@ class Tetris {
       this.dropInterval = 1000;
       this.paused = false;
       this.gameOver = false;
+      this.lives = 3;
+      this.maxLives = 3;
 
       this.currentPiece = null;
       this.currentPiecePos = { x: 0, y: 0 };
       this.nextPiece = this.createPiece();
+
+      // Load saved game state if it exists
+      const savedState = localStorage.getItem('tetrisGameState');
+      if (savedState) {
+          const state = JSON.parse(savedState);
+          this.board = state.board;
+          this.score = state.score;
+          this.level = state.level;
+          this.lines = state.lines;
+          this.gameTime = state.gameTime;
+          this.gameOver = state.gameOver;
+          this.lives = state.lives || this.maxLives;
+          
+          if (this.gameOver) {
+              this.showScoreboard();
+          }
+      }
 
       this.initializeBoard();
       this.setupEventListeners();
@@ -87,11 +106,27 @@ class Tetris {
       };
 
       if (this.checkCollision()) {
-          this.gameOver = true;
-          this.handleGameOver();
+          this.lives--;
+          if (this.lives <= 0) {
+              this.gameOver = true;
+              this.handleGameOver();
+          } else {
+              // Clear the entire board when losing a life
+              this.board = Array(this.BOARD_HEIGHT).fill().map(() => Array(this.BOARD_WIDTH).fill(0));
+              // Show life lost message
+              const message = `Life lost! ${this.lives} ${this.lives === 1 ? 'life' : 'lives'} remaining`;
+              alert(message);
+              // Try spawning again
+              this.currentPiecePos.y = 0;
+              if (this.checkCollision()) {
+                  this.gameOver = true;
+                  this.handleGameOver();
+              }
+          }
       }
 
       this.renderNextPiece();
+      this.updateStats();
   }
 
   renderNextPiece() {
@@ -214,26 +249,42 @@ class Tetris {
       this.scoreElement.textContent = this.score;
       this.levelElement.textContent = this.level;
       this.linesElement.textContent = this.lines;
+      
+      // Update lives display if it exists
+      const livesElement = document.getElementById('lives');
+      if (livesElement) {
+          livesElement.textContent = '❤'.repeat(this.lives) + '🖤'.repeat(this.maxLives - this.lives);
+      }
   }
 
   handleKeyDown(e) {
-      if (this.paused || this.gameOver) return;
+      if (this.gameOver) return;
 
       switch (e.code) {
           case 'ArrowLeft':
-              this.moveHorizontally(-1);
+              if (!this.paused) this.moveHorizontally(-1);
               break;
           case 'ArrowRight':
-              this.moveHorizontally(1);
+              if (!this.paused) this.moveHorizontally(1);
               break;
           case 'ArrowDown':
-              this.moveDown();
+              if (!this.paused) this.moveDown();
               break;
           case 'ArrowUp':
-              this.rotate();
+              if (!this.paused) this.rotate();
               break;
           case 'Space':
-              while (this.moveDown());
+              if (e.target === document.body) {
+                  e.preventDefault(); // Prevent page scroll
+                  if (!this.paused) {
+                      // Hard drop
+                      while (this.moveDown());
+                  }
+              }
+              break;
+          case 'ShiftLeft':
+          case 'ShiftRight':
+              this.togglePause();
               break;
       }
   }
@@ -252,6 +303,8 @@ class Tetris {
   }
 
   restart() {
+      localStorage.removeItem('tetrisGameState');
+      
       this.board = Array(this.BOARD_HEIGHT).fill().map(() => Array(this.BOARD_WIDTH).fill(0));
       this.score = 0;
       this.level = 1;
@@ -260,6 +313,7 @@ class Tetris {
       this.dropInterval = 1000;
       this.gameOver = false;
       this.paused = false;
+      this.lives = this.maxLives; // Reset lives
       this.pauseMenu.style.display = 'none';
       this.scoreboard.style.display = 'none';
       this.nextPiece = this.createPiece();
@@ -270,6 +324,17 @@ class Tetris {
   }
 
   async handleGameOver() {
+      // Check if we already have a saved game state with a name
+      const savedState = localStorage.getItem('tetrisGameState');
+      if (savedState) {
+          const state = JSON.parse(savedState);
+          if (state.playerName) {
+              // If we already have a name, just show the scoreboard
+              await this.showScoreboard();
+              return;
+          }
+      }
+
       const name = prompt('Game Over! Enter your name:');
       if (name) {
           const score = {
@@ -279,6 +344,9 @@ class Tetris {
               date: new Date().toISOString()
           };
 
+          // Save game state with player name
+          this.saveGameState(name);
+          
           try {
               const response = await fetch('http://localhost:8080/api/scores', {
                   method: 'POST',
@@ -287,24 +355,46 @@ class Tetris {
                   },
                   body: JSON.stringify(score)
               });
-
-              if (response.ok) {
-                  await this.showScoreboard();
-              }
           } catch (error) {
               console.error('Error saving score:', error);
           }
+          
+          // Show scoreboard regardless of API result
+          await this.showScoreboard();
+      } else {
+          // If user cancels name input, just show the final board state
+          await this.showScoreboard();
       }
   }
 
   async showScoreboard() {
+      const loadingMessage = document.createElement('div');
+      loadingMessage.textContent = 'Loading scores...';
+      loadingMessage.style.padding = '20px';
+      this.scoreboard.innerHTML = '';
+      this.scoreboard.appendChild(loadingMessage);
+      this.scoreboard.style.display = 'block';
+
       try {
           const response = await fetch('http://localhost:8080/api/scores');
           const scores = await response.json();
 
-          const tbody = document.querySelector('#scores-table tbody');
-          tbody.innerHTML = '';
+          this.scoreboard.innerHTML = `
+              <table id="scores-table">
+                  <thead>
+                      <tr>
+                          <th>Rank</th>
+                          <th>Name</th>
+                          <th>Score</th>
+                          <th>Time</th>
+                      </tr>
+                  </thead>
+                  <tbody></tbody>
+              </table>
+              <button id="play-again-button">Play Again</button>
+          `;
 
+          const tbody = document.querySelector('#scores-table tbody');
           scores.sort((a, b) => b.score - a.score)
               .forEach((score, index) => {
                   const row = document.createElement('tr');
@@ -313,15 +403,23 @@ class Tetris {
                       <td>${score.name}</td>
                       <td>${score.score}</td>
                       <td>${score.time}</td>
-                      <td>${new Date(score.date).toLocaleDateString()}</td>
                   `;
                   tbody.appendChild(row);
               });
 
-          this.scoreboard.style.display = 'block';
       } catch (error) {
           console.error('Error fetching scores:', error);
+          this.scoreboard.innerHTML = `
+              <div>Error loading scores</div>
+              <button id="play-again-button">Play Again</button>
+          `;
       }
+
+      // Reattach play again button event listener
+      document.getElementById('play-again-button').addEventListener('click', () => {
+          this.scoreboard.style.display = 'none';
+          this.restart();
+      });
   }
 
   render() {
@@ -385,7 +483,23 @@ class Tetris {
       }
 
       this.render();
+      // Save game state after each update
+      this.saveGameState();
       requestAnimationFrame(time => this.update(time));
+  }
+
+  saveGameState(playerName = null) {
+      const gameState = {
+          board: this.board,
+          score: this.score,
+          level: this.level,
+          lines: this.lines,
+          gameTime: this.gameTime,
+          gameOver: this.gameOver,
+          playerName: playerName,
+          lives: this.lives // Save lives state
+      };
+      localStorage.setItem('tetrisGameState', JSON.stringify(gameState));
   }
 }
 
