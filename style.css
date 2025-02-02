@@ -27,6 +27,18 @@ body {
   background: #000;
 }
 
+.grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.grid-overlay line {
+  stroke: rgba(95, 95, 95, 0.4);
+  stroke-width: 1;
+}
+
 .cell {
   position: absolute;
   width: 30px;

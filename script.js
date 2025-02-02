@@ -85,6 +85,7 @@ class Tetris {
 
       this.initializeBoard();
       this.setupEventListeners();
+      this.drawGrid();
       
       // Make sure nextPiece is created before spawning the first piece
       if (!this.nextPiece) {
@@ -576,6 +577,30 @@ class Tetris {
       this.nextPieceCellPool = [];
       this.activeCells.clear();
       this.activeNextPieceCells.clear();
+  }
+
+  drawGrid() {
+      const svg = this.gameBoard.querySelector('.grid-overlay');
+      
+      // Draw vertical lines
+      for (let x = 0; x <= this.BOARD_WIDTH; x++) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x * this.CELL_SIZE);
+          line.setAttribute('y1', 0);
+          line.setAttribute('x2', x * this.CELL_SIZE);
+          line.setAttribute('y2', this.BOARD_HEIGHT * this.CELL_SIZE);
+          svg.appendChild(line);
+      }
+      
+      // Draw horizontal lines
+      for (let y = 0; y <= this.BOARD_HEIGHT; y++) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', 0);
+          line.setAttribute('y1', y * this.CELL_SIZE);
+          line.setAttribute('x2', this.BOARD_WIDTH * this.CELL_SIZE);
+          line.setAttribute('y2', y * this.CELL_SIZE);
+          svg.appendChild(line);
+      }
   }
 }
 
