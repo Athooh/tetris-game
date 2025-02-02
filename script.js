@@ -407,44 +407,125 @@ class Tetris {
   }
 
   async showScoreboard() {
-      const loadingMessage = document.createElement('div');
-      loadingMessage.textContent = 'Loading scores...';
-      loadingMessage.style.padding = '20px';
-      this.scoreboard.innerHTML = '';
-      this.scoreboard.appendChild(loadingMessage);
+      const SCORES_PER_PAGE = 10;
+      let currentPage = 1;
+      let filteredScores = [];
+      let allScores = [];
+      
+      // Rebuild the scoreboard HTML structure
+      this.scoreboard.innerHTML = `
+          <h2>High Scores</h2>
+          <div class="scoreboard-controls">
+              <input type="text" id="score-search" placeholder="Search by name...">
+              <div class="pagination">
+                  <button id="prev-page">←</button>
+                  <span id="page-info">Page 1 of 1</span>
+                  <button id="next-page">→</button>
+              </div>
+          </div>
+          <div id="percentile-info" class="hidden">
+              Your score is in the top <span id="percentile">0</span>% of all players!
+          </div>
+          <table id="scores-table">
+              <thead>
+                  <tr>
+                      <th>Position</th>
+                      <th>Name</th>
+                      <th>Score</th>
+                      <th>Time</th>
+                  </tr>
+              </thead>
+              <tbody></tbody>
+          </table>
+          <button id="play-again-button">Play Again</button>
+          <div id="loading-message">Loading scores...</div>
+      `;
+      
       this.scoreboard.style.display = 'block';
 
       try {
           const response = await fetch('http://localhost:8080/api/scores');
-          const scores = await response.json();
+          allScores = await response.json();
+          filteredScores = [...allScores];
 
-          this.scoreboard.innerHTML = `
-              <table id="scores-table">
-                  <thead>
-                      <tr>
-                          <th>Rank</th>
-                          <th>Name</th>
-                          <th>Score</th>
-                          <th>Time</th>
-                      </tr>
-                  </thead>
-                  <tbody></tbody>
-              </table>
-              <button id="play-again-button">Play Again</button>
-          `;
+          // Remove loading message
+          const loadingMessage = document.getElementById('loading-message');
+          if (loadingMessage) {
+              loadingMessage.remove();
+          }
 
-          const tbody = document.querySelector('#scores-table tbody');
-          scores.sort((a, b) => b.score - a.score)
-              .forEach((score, index) => {
+          // Calculate percentile for current score
+          if (this.gameOver) {
+              const betterScores = allScores.filter(s => s.score > this.score).length;
+              const percentile = Math.round((1 - betterScores / allScores.length) * 100);
+              const percentileSpan = document.getElementById('percentile');
+              if (percentileSpan) {
+                  percentileSpan.textContent = percentile;
+                  document.getElementById('percentile-info')?.classList.remove('hidden');
+              }
+          }
+
+          const renderScores = (scores, page) => {
+              const start = (page - 1) * SCORES_PER_PAGE;
+              const end = start + SCORES_PER_PAGE;
+              const pageScores = scores.slice(start, end);
+              
+              const tbody = document.querySelector('#scores-table tbody');
+              tbody.innerHTML = '';
+              
+              pageScores.forEach((score, index) => {
+                  const position = start + index + 1;
                   const row = document.createElement('tr');
+                  if (this.gameOver && score.name === this.playerName && score.score === this.score) {
+                      row.classList.add('current-score');
+                  }
+                  
+                  const minutes = Math.floor(parseInt(score.time) / 60);
+                  const seconds = parseInt(score.time) % 60;
+                  const timeFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                  
                   row.innerHTML = `
-                      <td>${index + 1}</td>
+                      <td>${position}</td>
                       <td>${score.name}</td>
                       <td>${score.score}</td>
-                      <td>${score.time}</td>
+                      <td>${timeFormatted}</td>
                   `;
                   tbody.appendChild(row);
               });
+
+              // Update pagination info
+              document.getElementById('page-info').textContent = 
+                  `Page ${page} of ${Math.ceil(scores.length / SCORES_PER_PAGE)}`;
+          };
+
+          // Set up search functionality
+          const searchInput = document.getElementById('score-search');
+          searchInput.addEventListener('input', (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              filteredScores = allScores.filter(score => 
+                  score.name.toLowerCase().includes(searchTerm)
+              );
+              currentPage = 1;
+              renderScores(filteredScores, currentPage);
+          });
+
+          // Set up pagination
+          document.getElementById('prev-page').addEventListener('click', () => {
+              if (currentPage > 1) {
+                  currentPage--;
+                  renderScores(filteredScores, currentPage);
+              }
+          });
+
+          document.getElementById('next-page').addEventListener('click', () => {
+              if (currentPage < Math.ceil(filteredScores.length / SCORES_PER_PAGE)) {
+                  currentPage++;
+                  renderScores(filteredScores, currentPage);
+              }
+          });
+
+          // Initial render
+          renderScores(filteredScores, currentPage);
 
       } catch (error) {
           console.error('Error fetching scores:', error);
@@ -455,7 +536,7 @@ class Tetris {
       }
 
       // Reattach play again button event listener
-      document.getElementById('play-again-button').addEventListener('click', () => {
+      document.getElementById('play-again-button')?.addEventListener('click', () => {
           this.scoreboard.style.display = 'none';
           this.restart();
       });
@@ -604,7 +685,11 @@ class Tetris {
   }
 }
 
-// Start the game
-window.onload = () => {
-  const game = new Tetris();
-};
+// Replace the window.onload at the bottom of the file with this:
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        const game = new Tetris();
+    } catch (error) {
+        console.error('Error initializing game:', error);
+    }
+});

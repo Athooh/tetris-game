@@ -22,18 +22,29 @@
         </div>
     </div>
 
-    <div id="pause-menu">
+    <div id="pause-menu" style="display: none;">
         <h2>Game Paused</h2>
         <button id="continue-button">Continue</button>
         <button id="restart-button">Restart</button>
     </div>
 
-    <div id="scoreboard">
+    <div id="scoreboard" style="display: none;">
         <h2>High Scores</h2>
+        <div class="scoreboard-controls">
+            <input type="text" id="score-search" placeholder="Search by name...">
+            <div class="pagination">
+                <button id="prev-page">←</button>
+                <span id="page-info">Page 1 of 1</span>
+                <button id="next-page">→</button>
+            </div>
+        </div>
+        <div id="percentile-info" class="hidden">
+            Your score is in the top <span id="percentile">0</span>% of all players!
+        </div>
         <table id="scores-table">
             <thead>
                 <tr>
-                    <th>Rank</th>
+                    <th>Position</th>
                     <th>Name</th>
                     <th>Score</th>
                     <th>Time</th>
@@ -44,6 +55,6 @@
         <button id="play-again-button">Play Again</button>
     </div>
 
-   <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

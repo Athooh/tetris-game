@@ -240,87 +240,93 @@
     "rank": 40
   },
   {
+    "name": "tom",
+    "score": 40,
+    "time": "00:17",
+    "rank": 41
+  },
+  {
     "name": "ray",
     "score": 0,
     "time": "01:06",
-    "rank": 41
+    "rank": 42
   },
   {
     "name": "jj",
     "score": 0,
     "time": "00:10",
-    "rank": 42
+    "rank": 43
   },
   {
     "name": "yi",
     "score": 0,
     "time": "00:03",
-    "rank": 43
+    "rank": 44
   },
   {
     "name": "[object Promise]",
     "score": 0,
     "time": "00:08",
-    "rank": 44
+    "rank": 45
   },
   {
     "name": "gustavo",
     "score": 0,
     "time": "00:03",
-    "rank": 45
+    "rank": 46
   },
   {
     "name": "lkkm",
     "score": 0,
     "time": "00:16",
-    "rank": 46
+    "rank": 47
   },
   {
     "name": "sds",
     "score": 0,
     "time": "00:07",
-    "rank": 47
+    "rank": 48
   },
   {
     "name": "dwd",
     "score": 0,
     "time": "00:07",
-    "rank": 48
+    "rank": 49
   },
   {
     "name": "dd",
     "score": 0,
     "time": "00:00",
-    "rank": 49
+    "rank": 50
   },
   {
     "name": "rqy",
     "score": 0,
     "time": "00:04",
-    "rank": 50
+    "rank": 51
   },
   {
     "name": "loss",
     "score": 0,
     "time": "00:12",
-    "rank": 51
+    "rank": 52
   },
   {
     "name": "you",
     "score": 0,
     "time": "00:03",
-    "rank": 52
+    "rank": 53
   },
   {
     "name": "tau",
     "score": 0,
     "time": "00:13",
-    "rank": 53
+    "rank": 54
   },
   {
     "name": "rw",
     "score": 0,
     "time": "00:10",
-    "rank": 54
+    "rank": 55
   }
 ]
