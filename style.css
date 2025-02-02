@@ -69,6 +69,31 @@ body {
   border-radius: 4px;
 }
 
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+#lives {
+  display: inline-flex;
+  gap: 4px;
+  font-size: 1.5em;
+}
+
+#lives .filled-heart {
+  color: #ff4444;
+  text-shadow: 0 0 4px rgba(255, 0, 0, 0.5);
+}
+
+#lives .empty-heart {
+  color: #666;
+  opacity: 0.5;
+}
+
 button {
   background: #444;
   color: #fff;
