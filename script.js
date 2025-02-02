@@ -46,7 +46,25 @@ class Tetris {
 
       this.currentPiece = null;
       this.currentPiecePos = { x: 0, y: 0 };
+      
+      // Initialize nextPiece before anything tries to use it
       this.nextPiece = this.createPiece();
+
+      // Pre-create cell elements pool
+      this.cellPool = Array(this.BOARD_WIDTH * this.BOARD_HEIGHT).fill().map(() => {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          return cell;
+      });
+      this.activeCells = new Set();
+
+      // Pre-create next piece cell pool
+      this.nextPieceCellPool = Array(4 * 4).fill().map(() => {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          return cell;
+      });
+      this.activeNextPieceCells = new Set();
 
       // Load saved game state if it exists
       const savedState = localStorage.getItem('tetrisGameState');
@@ -67,6 +85,11 @@ class Tetris {
 
       this.initializeBoard();
       this.setupEventListeners();
+      
+      // Make sure nextPiece is created before spawning the first piece
+      if (!this.nextPiece) {
+          this.nextPiece = this.createPiece();
+      }
       this.spawnPiece();
       this.update();
   }
@@ -130,16 +153,31 @@ class Tetris {
   }
 
   renderNextPiece() {
-      this.nextPieceBoard.innerHTML = '';
+      // First, return all active cells to the pool
+      this.activeNextPieceCells.forEach(cell => {
+          this.nextPieceBoard.removeChild(cell);
+          this.nextPieceCellPool.push(cell); // Make sure to return cells to pool
+      });
+      this.activeNextPieceCells.clear();
+
       this.nextPiece.shape.forEach((row, y) => {
           row.forEach((value, x) => {
               if (value) {
-                  const cell = document.createElement('div');
-                  cell.className = 'cell';
+                  // Check if pool is empty
+                  if (this.nextPieceCellPool.length === 0) {
+                      // Create new cell if pool is empty
+                      const cell = document.createElement('div');
+                      cell.className = 'cell';
+                      this.nextPieceCellPool.push(cell);
+                      console.warn('Next piece cell pool was empty, created new cell');
+                  }
+                  
+                  const cell = this.nextPieceCellPool.pop();
                   cell.style.backgroundColor = this.nextPiece.color;
                   cell.style.left = `${x * this.CELL_SIZE + 30}px`;
                   cell.style.top = `${y * this.CELL_SIZE + 30}px`;
                   this.nextPieceBoard.appendChild(cell);
+                  this.activeNextPieceCells.add(cell);
               }
           });
       });
@@ -423,34 +461,56 @@ class Tetris {
   }
 
   render() {
-      // Clear the game board
-      this.gameBoard.innerHTML = '';
+      // First, return all active cells to the pool
+      this.activeCells.forEach(cell => {
+          this.gameBoard.removeChild(cell);
+          this.cellPool.push(cell); // Make sure to return cells to pool
+      });
+      this.activeCells.clear();
 
-      // Render the fixed pieces
+      // Render fixed pieces
       this.board.forEach((row, y) => {
           row.forEach((color, x) => {
               if (color) {
-                  const cell = document.createElement('div');
-                  cell.className = 'cell';
+                  // Check if pool is empty
+                  if (this.cellPool.length === 0) {
+                      // Create new cell if pool is empty
+                      const cell = document.createElement('div');
+                      cell.className = 'cell';
+                      this.cellPool.push(cell);
+                      console.warn('Main cell pool was empty, created new cell');
+                  }
+
+                  const cell = this.cellPool.pop();
                   cell.style.backgroundColor = color;
                   cell.style.left = `${x * this.CELL_SIZE}px`;
                   cell.style.top = `${y * this.CELL_SIZE}px`;
                   this.gameBoard.appendChild(cell);
+                  this.activeCells.add(cell);
               }
           });
       });
 
-      // Render the current piece
+      // Render current piece
       if (this.currentPiece) {
           this.currentPiece.shape.forEach((row, y) => {
               row.forEach((value, x) => {
                   if (value) {
-                      const cell = document.createElement('div');
-                      cell.className = 'cell';
+                      // Check if pool is empty
+                      if (this.cellPool.length === 0) {
+                          // Create new cell if pool is empty
+                          const cell = document.createElement('div');
+                          cell.className = 'cell';
+                          this.cellPool.push(cell);
+                          console.warn('Main cell pool was empty, created new cell');
+                      }
+
+                      const cell = this.cellPool.pop();
                       cell.style.backgroundColor = this.currentPiece.color;
                       cell.style.left = `${(x + this.currentPiecePos.x) * this.CELL_SIZE}px`;
                       cell.style.top = `${(y + this.currentPiecePos.y) * this.CELL_SIZE}px`;
                       this.gameBoard.appendChild(cell);
+                      this.activeCells.add(cell);
                   }
               });
           });
@@ -482,10 +542,15 @@ class Tetris {
           this.dropCounter = 0;
       }
 
-      this.render();
-      // Save game state after each update
-      this.saveGameState();
-      requestAnimationFrame(time => this.update(time));
+      // Use requestAnimationFrame more efficiently
+      if (!this.animationFrameId) {
+          this.animationFrameId = requestAnimationFrame(time => {
+              this.animationFrameId = null;
+              this.render();
+              this.saveGameState();
+              this.update(time);
+          });
+      }
   }
 
   saveGameState(playerName = null) {
@@ -500,6 +565,17 @@ class Tetris {
           lives: this.lives // Save lives state
       };
       localStorage.setItem('tetrisGameState', JSON.stringify(gameState));
+  }
+
+  // Add cleanup method
+  cleanup() {
+      if (this.animationFrameId) {
+          cancelAnimationFrame(this.animationFrameId);
+      }
+      this.cellPool = [];
+      this.nextPieceCellPool = [];
+      this.activeCells.clear();
+      this.activeNextPieceCells.clear();
   }
 }
 
