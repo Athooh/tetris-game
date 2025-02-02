@@ -253,21 +253,7 @@ class Tetris {
       // Update lives display
       const livesElement = document.getElementById('lives');
       if (livesElement) {
-          livesElement.innerHTML = '';
-          // Add filled hearts
-          for (let i = 0; i < this.lives; i++) {
-              const heart = document.createElement('span');
-              heart.innerHTML = '♥'; // Using HTML heart entity
-              heart.className = 'filled-heart';
-              livesElement.appendChild(heart);
-          }
-          // Add empty hearts
-          for (let i = this.lives; i < this.maxLives; i++) {
-              const heart = document.createElement('span');
-              heart.innerHTML = '♡'; // Using HTML empty heart entity
-              heart.className = 'empty-heart';
-              livesElement.appendChild(heart);
-          }
+          livesElement.textContent = `${this.lives}/${this.maxLives}`;
       }
   }
 
