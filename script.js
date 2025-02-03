@@ -190,10 +190,15 @@ class Tetris {
               if (!value) return false;
               const boardX = this.currentPiecePos.x + x;
               const boardY = this.currentPiecePos.y + y;
-              return boardX < 0 || 
-                     boardX >= this.BOARD_WIDTH ||
-                     boardY >= this.BOARD_HEIGHT ||
-                     (boardY >= 0 && this.board[boardY][boardX]);
+              
+              // Check boundaries first
+              if (boardX < 0 || boardX >= this.BOARD_WIDTH || 
+                  boardY >= this.BOARD_HEIGHT) {
+                  return true;
+              }
+              
+              // Then check collision with other pieces only if within bounds
+              return boardY >= 0 && this.board[boardY][boardX];
           });
       });
   }
@@ -662,6 +667,8 @@ class Tetris {
 
   drawGrid() {
       const svg = this.gameBoard.querySelector('.grid-overlay');
+      svg.setAttribute('width', this.BOARD_WIDTH * this.CELL_SIZE);
+      svg.setAttribute('height', this.BOARD_HEIGHT * this.CELL_SIZE);
       
       // Draw vertical lines
       for (let x = 0; x <= this.BOARD_WIDTH; x++) {
