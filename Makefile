@@ -26,7 +26,10 @@ stop:
 	@pkill -f "python3 -m http.server" || true
 	@sleep 1
 
-start: stop all
+start: stop
+	@echo "Starting servers..."
+	@$(MAKE) backend
+	@$(MAKE) frontend
 	@echo "Servers are running!"
 	@echo "Frontend: http://localhost:5500"
-	@echo "Backend: http://localhost:8080" 
+	@echo "Backend: http://localhost:8080"
